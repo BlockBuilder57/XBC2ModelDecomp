@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.168
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XBC2ModelDecomp", "XBC2ModelDecomp\XBC2ModelDecomp.csproj", "{63858B8D-24A0-4E76-83F6-F792C2117318}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{63858B8D-24A0-4E76-83F6-F792C2117318}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{63858B8D-24A0-4E76-83F6-F792C2117318}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{63858B8D-24A0-4E76-83F6-F792C2117318}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{63858B8D-24A0-4E76-83F6-F792C2117318}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {82F50C24-F234-427A-A3F2-2DCFEE59AC2B}
+	EndGlobalSection
+EndGlobal
