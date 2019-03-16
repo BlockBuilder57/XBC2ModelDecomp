@@ -22,10 +22,12 @@ namespace XBC2ModelDecomp
             return text;
         }
 
-        public MemoryStream XBC1(FileStream fileStream, BinaryReader binaryReader, int offset, bool saveToFile = false, string saveToFileName = "", string savetoFilePath = "")
+        public MemoryStream XBC1(FileStream fileStream, BinaryReader binaryReader, int offset, string saveToFileName = "", string savetoFilePath = "")
         {
             fileStream.Seek(offset, SeekOrigin.Begin);
             int XBC1Magic = binaryReader.ReadInt32(); //nice meme
+            if (XBC1Magic != 0x31636278)
+                return null;
             binaryReader.ReadInt32();
             int outputFileSize = binaryReader.ReadInt32();
             int compressedLength = binaryReader.ReadInt32();
@@ -34,7 +36,7 @@ namespace XBC2ModelDecomp
             //string fileInfo = ReadNullTerminatedString(binaryReader);
 
             fileStream.Seek(offset + 0x30, SeekOrigin.Begin);
-            byte[] fileBuffer = new byte[outputFileSize];
+            byte[] fileBuffer = new byte[outputFileSize >= compressedLength ? outputFileSize : compressedLength];
 
             MemoryStream msFile = new MemoryStream();
             fileStream.Read(fileBuffer, 0, compressedLength);
@@ -43,11 +45,11 @@ namespace XBC2ModelDecomp
             ZOutFile.Write(fileBuffer, 0, compressedLength);
             ZOutFile.Flush();
 
-            if (saveToFile)
+            if (!string.IsNullOrWhiteSpace(saveToFileName))
             {
                 if (!string.IsNullOrWhiteSpace(savetoFilePath) && !Directory.Exists(savetoFilePath))
                     Directory.CreateDirectory(savetoFilePath);
-                FileStream outputter = new FileStream($@"{savetoFilePath}{saveToFileName}", FileMode.OpenOrCreate);
+                FileStream outputter = new FileStream($@"{savetoFilePath}\{saveToFileName}", FileMode.OpenOrCreate);
                 msFile.WriteTo(outputter);
                 outputter.Flush();
                 outputter.Close();
@@ -70,16 +72,19 @@ namespace XBC2ModelDecomp
             memoryStream.Seek(0, SeekOrigin.Begin);
             
             int i = 0;
-            int meshPointersPointer = binaryReader.ReadInt32(); //0x0 pointer?
+            int meshPointersPointer = binaryReader.ReadInt32(); //0x0
             int meshCount = binaryReader.ReadInt32(); //0x4
-            int num14 = binaryReader.ReadInt32(); //0x8 pointer?
-            int num15 = binaryReader.ReadInt32(); //0xC same as meshCount?
-            memoryStream.Seek(24L, SeekOrigin.Current);
+            int meshDataPointer = binaryReader.ReadInt32(); //0x8
+            int meshCountWithFlexes = binaryReader.ReadInt32(); //0xC
+
+            memoryStream.Seek(0x18, SeekOrigin.Current);
             int num16 = binaryReader.ReadInt32(); //0x28
             binaryReader.ReadInt32(); //0x2C
             int meshDataStart = binaryReader.ReadInt32(); //0x30 4096
             binaryReader.ReadInt32(); //0x34
-            int num18 = binaryReader.ReadInt32(); //0x38 496
+            int meshExtraDataPointer = binaryReader.ReadInt32(); //0x38 496
+
+            //no clue
             int num19 = 0;
             int num20 = 0;
             int[] array6 = null;
@@ -105,6 +110,7 @@ namespace XBC2ModelDecomp
                     binaryReader.ReadInt32();
                 }
             }
+
             int[] meshesPointers = new int[meshCount];
             int[] array10 = new int[meshCount];
             int[] meshesDataCount = new int[meshCount];
@@ -121,10 +127,11 @@ namespace XBC2ModelDecomp
                 array14[i] = binaryReader.ReadInt32(); //6
                 memoryStream.Seek(12L, SeekOrigin.Current);
             }
-            int[] meshesDataStart = new int[num15];
-            int[] meshesVertexCount = new int[num15]; //5
-            memoryStream.Seek((long)num14, SeekOrigin.Begin); //0xF0 80
-            for (i = 0; i < num15; i++)
+
+            int[] meshesDataStart = new int[meshCountWithFlexes];
+            int[] meshesVertexCount = new int[meshCountWithFlexes]; //5
+            memoryStream.Seek(meshDataPointer, SeekOrigin.Begin); //0xF0 80
+            for (i = 0; i < meshCountWithFlexes; i++)
             {
                 meshesDataStart[i] = meshDataStart + binaryReader.ReadInt32();
                 meshesVertexCount[i] = binaryReader.ReadInt32();
@@ -132,10 +139,11 @@ namespace XBC2ModelDecomp
                 binaryReader.ReadInt32();
                 binaryReader.ReadInt32();
             }
-            memoryStream.Seek((long)(num18 + 8), SeekOrigin.Begin);
-            int num22 = (int)binaryReader.ReadInt16(); //4
-            int[,] meshWeightIds = new int[meshesDataCount[num22], 4];
-            float[,] meshWeightValues = new float[meshesDataCount[num22], 4];
+
+            memoryStream.Seek(meshExtraDataPointer + 0x8, SeekOrigin.Begin);
+            int meshWeightBoneCount = (int)binaryReader.ReadInt16(); //4
+            int[,] meshWeightIds = new int[meshesDataCount[meshWeightBoneCount], 4];
+            float[,] meshWeightValues = new float[meshesDataCount[meshWeightBoneCount], 4];
             Vector3[][] meshVertices = new Vector3[meshCount][];
             Vector3[][] meshNormals = new Vector3[meshCount][];
             float[][,] meshFlexesX = new float[meshCount][,];
@@ -143,183 +151,212 @@ namespace XBC2ModelDecomp
             int[][] meshWeights = new int[meshCount][];
             int[] meshUVLayers = new int[meshCount];
 
-            FileStream fsWIMDO = new FileStream(Path.GetFileNameWithoutExtension(args[0]) + ".wimdo", FileMode.Open, FileAccess.Read);
-            BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
-            brWIMDO.ReadInt32();
-            brWIMDO.ReadInt32();
-            int num23 = brWIMDO.ReadInt32();
-            fsWIMDO.Seek((long)(num23 + 28), SeekOrigin.Begin);
-            int num24 = brWIMDO.ReadInt32();
-            brWIMDO.ReadInt32();
-            brWIMDO.ReadInt32();
-            int num25 = brWIMDO.ReadInt32();
-            fsWIMDO.Seek(84L, SeekOrigin.Current);
-            int num26 = brWIMDO.ReadInt32();
-            string[] meshFlexNames = null;
-            if (num26 > 0)
-            {
-                fsWIMDO.Seek((long)(num23 + num26), SeekOrigin.Begin);
-                int num27 = brWIMDO.ReadInt32();
-                int num28 = brWIMDO.ReadInt32();
-                int[] array26 = new int[num28];
-                meshFlexNames = new string[num28];
-                for (i = 0; i < num28; i++)
-                {
-                    fsWIMDO.Seek((long)(num23 + num26 + num27 + i * 28), SeekOrigin.Begin);
-                    array26[i] = brWIMDO.ReadInt32();
-                }
-                for (i = 0; i < num28; i++)
-                {
-                    fsWIMDO.Seek((long)(num23 + num26 + array26[i]), SeekOrigin.Begin);
-                    meshFlexNames[i] = FormatTools.ReadNullTerminatedString(brWIMDO);
-                }
-            }
-            fsWIMDO.Seek((long)(num23 + num24), SeekOrigin.Begin);
-            int num29 = brWIMDO.ReadInt32();
-            int num30 = brWIMDO.ReadInt32();
-            fsWIMDO.Seek((long)(num23 + num29), SeekOrigin.Begin);
+            bool WIMDOExists = false;
+            bool ARCExists = false;
+            if (File.Exists(Path.GetFileNameWithoutExtension(args[0]) + ".wimdo"))
+                WIMDOExists = true;
+            if (File.Exists(Path.GetFileNameWithoutExtension(args[0]) + ".arc"))
+                ARCExists = true;
+
+            //might be material data (and flexes?)
+            string[] meshFlexNames = new string[0];
+            int num30 = 0;
+            Dictionary<int, string> dictionary = new Dictionary<int, string>();
             int[] array27 = new int[num30];
             int[] array28 = new int[num30];
             int[] array29 = new int[num30];
-            int[] array30 = new int[num30];
-            for (i = 0; i < num30; i++)
-            {
-                brWIMDO.ReadByte();
-                brWIMDO.ReadByte();
-                brWIMDO.ReadByte();
-                array29[i] = (int)brWIMDO.ReadByte();
-                brWIMDO.ReadInt32();
-                array28[i] = (int)brWIMDO.ReadInt16();
-                array27[i] = (int)brWIMDO.ReadInt16();
-                brWIMDO.ReadInt16();
-                brWIMDO.ReadInt32();
-                brWIMDO.ReadInt32();
-                brWIMDO.ReadInt32();
-                brWIMDO.ReadInt32();
-                array30[i] = (int)brWIMDO.ReadInt16();
-                brWIMDO.ReadInt32();
-                brWIMDO.ReadInt32();
-                brWIMDO.ReadInt32();
-                brWIMDO.ReadInt32();
-            }
+            int[] meshVertexCount = new int[num30];
 
-            fsWIMDO.Seek((long)(num23 + num25), SeekOrigin.Begin);
-            int num31 = brWIMDO.ReadInt32();
-            brWIMDO.ReadInt32();
-            int num32 = brWIMDO.ReadInt32();
-            fsWIMDO.Seek((long)(num23 + num25 + num32), SeekOrigin.Begin);
-            int[] array31 = new int[num31];
-            for (i = 0; i < num31; i++)
+            if (WIMDOExists)
             {
-                array31[i] = num23 + num25 + brWIMDO.ReadInt32();
-                fsWIMDO.Seek(20L, SeekOrigin.Current);
-            }
-            Dictionary<int, string> dictionary = new Dictionary<int, string>();
-            for (i = 0; i < num31; i++)
-            {
-                fsWIMDO.Seek((long)array31[i], SeekOrigin.Begin);
-                string value = FormatTools.ReadNullTerminatedString(brWIMDO);
-                dictionary.Add(i, value);
-            }
-
-            FileStream fsARC = new FileStream(Path.GetFileNameWithoutExtension(args[0]) + ".arc", FileMode.Open, FileAccess.Read);
-            BinaryReader brARC = new BinaryReader(fsARC);
-            int boneCount = 0;
-            int num34 = 0;
-            int num35 = 0;
-            int num36 = 0;
-            int num37 = 0;
-            fsARC.Seek(12L, SeekOrigin.Begin);
-            int num38 = brARC.ReadInt32();
-            fsARC.Seek((long)brARC.ReadInt32(), SeekOrigin.Begin);
-            int[] array32 = new int[num38];
-            for (i = 0; i < num38; i++)
-            {
-                array32[i] = brARC.ReadInt32();
-                fsARC.Seek(60L, SeekOrigin.Current);
-            }
-            for (i = 0; i < num38; i++)
-            {
-                fsARC.Seek((long)(array32[i] + 36), SeekOrigin.Begin);
-                int SKELMagic = brARC.ReadInt32();
-                if (SKELMagic == 0x4C454B53) //SKEL
+                FileStream fsWIMDO = new FileStream(Path.GetFileNameWithoutExtension(args[0]) + ".wimdo", FileMode.Open, FileAccess.Read);
+                BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
+                brWIMDO.ReadInt32(); //0x0
+                brWIMDO.ReadInt32(); //0x4
+                int num23 = brWIMDO.ReadInt32(); //0x8
+                fsWIMDO.Seek(num23 + 0x1C, SeekOrigin.Begin);
+                int num24 = brWIMDO.ReadInt32(); //0x6C
+                brWIMDO.ReadInt32(); //0x70
+                brWIMDO.ReadInt32(); //0x74
+                int num25 = brWIMDO.ReadInt32(); //0x78
+                fsWIMDO.Seek(0x54, SeekOrigin.Current);
+                int num26 = brWIMDO.ReadInt32(); //0xCC
+                meshFlexNames = null;
+                if (num26 > 0)
                 {
-                    num37 = array32[i];
-                    fsARC.Seek((long)(array32[i] + 80), SeekOrigin.Begin);
-                    num35 = array32[i] + brARC.ReadInt32();
-                    brARC.ReadInt32();
-                    boneCount = brARC.ReadInt32();
-                    fsARC.Seek((long)(array32[i] + 96), SeekOrigin.Begin);
-                    num36 = array32[i] + brARC.ReadInt32();
-                    fsARC.Seek((long)(array32[i] + 112), SeekOrigin.Begin);
-                    num34 = array32[i] + brARC.ReadInt32();
+                    fsWIMDO.Seek((long)(num23 + num26), SeekOrigin.Begin);
+                    int num27 = brWIMDO.ReadInt32();
+                    int num28 = brWIMDO.ReadInt32();
+                    int[] array26 = new int[num28];
+                    meshFlexNames = new string[num28];
+                    for (i = 0; i < num28; i++)
+                    {
+                        fsWIMDO.Seek((long)(num23 + num26 + num27 + i * 28), SeekOrigin.Begin);
+                        array26[i] = brWIMDO.ReadInt32();
+                    }
+                    for (i = 0; i < num28; i++)
+                    {
+                        fsWIMDO.Seek((long)(num23 + num26 + array26[i]), SeekOrigin.Begin);
+                        meshFlexNames[i] = FormatTools.ReadNullTerminatedString(brWIMDO);
+                    }
+                }
+                fsWIMDO.Seek((long)(num23 + num24), SeekOrigin.Begin);
+                int num29 = brWIMDO.ReadInt32();
+                num30 = brWIMDO.ReadInt32();
+                fsWIMDO.Seek((long)(num23 + num29), SeekOrigin.Begin);
+                array27 = new int[num30];
+                array28 = new int[num30];
+                array29 = new int[num30];
+                meshVertexCount = new int[num30];
+                for (i = 0; i < num30; i++)
+                {
+                    brWIMDO.ReadByte();
+                    brWIMDO.ReadByte();
+                    brWIMDO.ReadByte();
+                    array29[i] = (int)brWIMDO.ReadByte();
+                    brWIMDO.ReadInt32();
+                    array28[i] = (int)brWIMDO.ReadInt16();
+                    array27[i] = (int)brWIMDO.ReadInt16();
+                    brWIMDO.ReadInt16();
+                    brWIMDO.ReadInt32();
+                    brWIMDO.ReadInt32();
+                    brWIMDO.ReadInt32();
+                    brWIMDO.ReadInt32();
+                    meshVertexCount[i] = (int)brWIMDO.ReadInt16();
+                    brWIMDO.ReadInt32();
+                    brWIMDO.ReadInt32();
+                    brWIMDO.ReadInt32();
+                    brWIMDO.ReadInt32();
+                }
+
+                fsWIMDO.Seek((long)(num23 + num25), SeekOrigin.Begin);
+                int num31 = brWIMDO.ReadInt32();
+                brWIMDO.ReadInt32();
+                int num32 = brWIMDO.ReadInt32();
+                fsWIMDO.Seek((long)(num23 + num25 + num32), SeekOrigin.Begin);
+                int[] array31 = new int[num31];
+                for (i = 0; i < num31; i++)
+                {
+                    array31[i] = num23 + num25 + brWIMDO.ReadInt32();
+                    fsWIMDO.Seek(20L, SeekOrigin.Current);
+                }
+                dictionary = new Dictionary<int, string>();
+                for (i = 0; i < num31; i++)
+                {
+                    fsWIMDO.Seek((long)array31[i], SeekOrigin.Begin);
+                    string value = FormatTools.ReadNullTerminatedString(brWIMDO);
+                    dictionary.Add(i, value);
                 }
             }
-            Vector3[] bonePosFile = new Vector3[boneCount];
+
+            int boneCount = 0;
             Vector3[] bonePos = new Vector3[boneCount];
-            Quaternion[] boneRotFile = new Quaternion[boneCount];
             Quaternion[] boneRot = new Quaternion[boneCount];
             int[] bone_parents = new int[boneCount];
-            fsARC.Seek((long)num36, SeekOrigin.Begin);
-            int[] array38 = new int[boneCount];
-            for (i = 0; i < boneCount; i++)
-            {
-                array38[i] = num37 + brARC.ReadInt32();
-                brARC.ReadInt32();
-                brARC.ReadInt32();
-                brARC.ReadInt32();
-            }
             Dictionary<string, int> dictionary2 = new Dictionary<string, int>();
             string[] bone_names = new string[boneCount];
-            for (i = 0; i < boneCount; i++)
+
+            if (ARCExists)
             {
-                fsARC.Seek((long)array38[i], SeekOrigin.Begin);
-                string text = FormatTools.ReadNullTerminatedString(brARC);
-                dictionary2.Add(text, i);
-                bone_names[i] = text;
-            }
-            fsARC.Seek((long)num34, SeekOrigin.Begin);
-            for (i = 0; i < boneCount; i++)
-            {
-                float ARCReadX = brARC.ReadSingle();
-                float ARCReadY = brARC.ReadSingle();
-                float ARCReadZ = brARC.ReadSingle();
-                float ARCReadR = brARC.ReadSingle();
-                bonePosFile[i] = new Vector3(ARCReadX, ARCReadY, ARCReadZ);
-                ARCReadX = brARC.ReadSingle();
-                ARCReadY = brARC.ReadSingle();
-                ARCReadZ = brARC.ReadSingle();
-                ARCReadR = brARC.ReadSingle();
-                boneRotFile[i] = new Quaternion(ARCReadX, ARCReadY, ARCReadZ, ARCReadR);
-                bonePos[i] = new Vector3(ARCReadX, ARCReadY, ARCReadZ);
-                brARC.ReadSingle();
-                brARC.ReadSingle();
-                brARC.ReadSingle();
-                brARC.ReadSingle();
-            }
-            fsARC.Seek((long)num35, SeekOrigin.Begin);
-            for (int j = 0; j < boneCount; j++)
-            {
-                bone_parents[j] = (int)brARC.ReadInt16();
-            }
-            for (i = 0; i < boneCount; i++)
-            {
-                if (bone_parents[i] < 0) //is root
+                FileStream fsARC = new FileStream(Path.GetFileNameWithoutExtension(args[0]) + ".arc", FileMode.Open, FileAccess.Read);
+                BinaryReader brARC = new BinaryReader(fsARC);
+                boneCount = 0;
+                int num34 = 0;
+                int num35 = 0;
+                int num36 = 0;
+                int num37 = 0;
+                fsARC.Seek(12L, SeekOrigin.Begin);
+                int num38 = brARC.ReadInt32();
+                fsARC.Seek((long)brARC.ReadInt32(), SeekOrigin.Begin);
+                int[] array32 = new int[num38];
+                for (i = 0; i < num38; i++)
                 {
-                    bonePos[i] = bonePosFile[i];
-                    boneRot[i] = boneRotFile[i];
+                    array32[i] = brARC.ReadInt32();
+                    fsARC.Seek(60L, SeekOrigin.Current);
                 }
-                else
+                for (i = 0; i < num38; i++)
                 {
-                    int curParentIndex = bone_parents[i];
-                    boneRot[i] = boneRot[curParentIndex] * boneRotFile[i];
-                    Quaternion right = new Quaternion(bonePosFile[i], 0f);
-                    Quaternion left = boneRot[curParentIndex] * right;
-                    Quaternion Quaternion = left * new Quaternion(-boneRot[curParentIndex].X, -boneRot[curParentIndex].Y, -boneRot[curParentIndex].Z, boneRot[curParentIndex].W);
-                    bonePos[i] = new Vector3(Quaternion.X, Quaternion.Y, Quaternion.Z);
-                    Vector3[] array40;
-                    IntPtr intPtr;
-                    (array40 = bonePos)[(int)(intPtr = (IntPtr)i)] = array40[(int)intPtr] + bonePos[curParentIndex];
+                    fsARC.Seek((long)(array32[i] + 36), SeekOrigin.Begin);
+                    int SKELMagic = brARC.ReadInt32();
+                    if (SKELMagic == 0x4C454B53) //SKEL
+                    {
+                        num37 = array32[i];
+                        fsARC.Seek((long)(array32[i] + 80), SeekOrigin.Begin);
+                        num35 = array32[i] + brARC.ReadInt32();
+                        brARC.ReadInt32();
+                        boneCount = brARC.ReadInt32();
+                        fsARC.Seek((long)(array32[i] + 96), SeekOrigin.Begin);
+                        num36 = array32[i] + brARC.ReadInt32();
+                        fsARC.Seek((long)(array32[i] + 112), SeekOrigin.Begin);
+                        num34 = array32[i] + brARC.ReadInt32();
+                    }
+                }
+                Vector3[] bonePosFile = new Vector3[boneCount];
+                bonePos = new Vector3[boneCount];
+                Quaternion[] boneRotFile = new Quaternion[boneCount];
+                boneRot = new Quaternion[boneCount];
+                bone_parents = new int[boneCount];
+                fsARC.Seek((long)num36, SeekOrigin.Begin);
+                int[] array38 = new int[boneCount];
+                for (i = 0; i < boneCount; i++)
+                {
+                    array38[i] = num37 + brARC.ReadInt32();
+                    brARC.ReadInt32();
+                    brARC.ReadInt32();
+                    brARC.ReadInt32();
+                }
+                dictionary2 = new Dictionary<string, int>();
+                bone_names = new string[boneCount];
+                for (i = 0; i < boneCount; i++)
+                {
+                    fsARC.Seek((long)array38[i], SeekOrigin.Begin);
+                    string text = FormatTools.ReadNullTerminatedString(brARC);
+                    dictionary2.Add(text, i);
+                    bone_names[i] = text;
+                }
+                fsARC.Seek((long)num34, SeekOrigin.Begin);
+                for (i = 0; i < boneCount; i++)
+                {
+                    float ARCReadX = brARC.ReadSingle();
+                    float ARCReadY = brARC.ReadSingle();
+                    float ARCReadZ = brARC.ReadSingle();
+                    float ARCReadR = brARC.ReadSingle();
+                    bonePosFile[i] = new Vector3(ARCReadX, ARCReadY, ARCReadZ);
+                    ARCReadX = brARC.ReadSingle();
+                    ARCReadY = brARC.ReadSingle();
+                    ARCReadZ = brARC.ReadSingle();
+                    ARCReadR = brARC.ReadSingle();
+                    boneRotFile[i] = new Quaternion(ARCReadX, ARCReadY, ARCReadZ, ARCReadR);
+                    bonePos[i] = new Vector3(ARCReadX, ARCReadY, ARCReadZ);
+                    brARC.ReadSingle();
+                    brARC.ReadSingle();
+                    brARC.ReadSingle();
+                    brARC.ReadSingle();
+                }
+                fsARC.Seek((long)num35, SeekOrigin.Begin);
+                for (int j = 0; j < boneCount; j++)
+                {
+                    bone_parents[j] = (int)brARC.ReadInt16();
+                }
+                for (i = 0; i < boneCount; i++)
+                {
+                    if (bone_parents[i] < 0) //is root
+                    {
+                        bonePos[i] = bonePosFile[i];
+                        boneRot[i] = boneRotFile[i];
+                    }
+                    else
+                    {
+                        int curParentIndex = bone_parents[i];
+                        boneRot[i] = boneRot[curParentIndex] * boneRotFile[i];
+                        Quaternion right = new Quaternion(bonePosFile[i], 0f);
+                        Quaternion left = boneRot[curParentIndex] * right;
+                        Quaternion Quaternion = left * new Quaternion(-boneRot[curParentIndex].X, -boneRot[curParentIndex].Y, -boneRot[curParentIndex].Z, boneRot[curParentIndex].W);
+                        bonePos[i] = new Vector3(Quaternion.X, Quaternion.Y, Quaternion.Z);
+                        Vector3[] array40;
+                        IntPtr intPtr;
+                        (array40 = bonePos)[(int)(intPtr = (IntPtr)i)] = array40[(int)intPtr] + bonePos[curParentIndex];
+                    }
                 }
             }
 
@@ -405,27 +442,27 @@ namespace XBC2ModelDecomp
                 {
                     if (num44 >= 0)
                     {
-                        if (j == 0)
-                            Console.WriteLine($"POINTER: {meshesPointers[currentMesh]}\nJ: {j}\nARRAY12: {array12[currentMesh]}\nNUM44: {num44}");
+                        //if (j == 0)
+                        //    Console.WriteLine($"POINTER: {meshesPointers[currentMesh]}\nJ: {j}\nARRAY12: {array12[currentMesh]}\nNUM44: {num44}");
                         memoryStream.Seek((long)(meshesPointers[currentMesh] + j * array12[currentMesh] + num44), SeekOrigin.Begin);
-                        if (currentMesh == 0)
-                            Console.WriteLine($"Setting mesh's vertices! At offset 0x{memoryStream.Position.ToString("X")}");
+                        //if (currentMesh == 0)
+                        //    Console.WriteLine($"Setting mesh's vertices! At offset 0x{memoryStream.Position.ToString("X")}");
                         meshVertices[currentMesh][j] = new Vector3(binaryReader.ReadSingle(), binaryReader.ReadSingle(), binaryReader.ReadSingle());
                         meshNormals[currentMesh][j] = new Vector3(0f, 0f, 0f);
                     }
                     if (num46 >= 0)
                     {
                         memoryStream.Seek((long)(meshesPointers[currentMesh] + j * array12[currentMesh] + num46), SeekOrigin.Begin);
-                        if (currentMesh == 0)
-                            Console.WriteLine($"Setting mesh's weights! At offset 0x{memoryStream.Position.ToString("X")}");
+                        //if (currentMesh == 0)
+                        //    Console.WriteLine($"Setting mesh's weights! At offset 0x{memoryStream.Position.ToString("X")}");
                         meshWeights[currentMesh][j] = binaryReader.ReadInt32();
                     }
 
                     for (int k = 0; k < meshUVLayers[currentMesh]; k++)
                     {
                         memoryStream.Seek((long)(meshesPointers[currentMesh] + j * array12[currentMesh] + meshUVSomething[k]), SeekOrigin.Begin);
-                        if (currentMesh == 0 && k == 0)
-                            Console.WriteLine($"Setting mesh's flexes! At offset 0x{memoryStream.Position.ToString("X")}");
+                        //if (currentMesh == 0 && k == 0)
+                        //    Console.WriteLine($"Setting mesh's flexes! At offset 0x{memoryStream.Position.ToString("X")}");
                         meshFlexesX[currentMesh][j, k] = binaryReader.ReadSingle();
                         meshFlexesY[currentMesh][j, k] = binaryReader.ReadSingle();
                     }
@@ -433,8 +470,8 @@ namespace XBC2ModelDecomp
                     if (num45 >= 0)
                     {
                         memoryStream.Seek((long)(meshesPointers[currentMesh] + j * array12[currentMesh] + num45), SeekOrigin.Begin);
-                        if (currentMesh == 0)
-                            Console.WriteLine($"Setting mesh's normals! At offset 0x{memoryStream.Position.ToString("X")}");
+                        //if (currentMesh == 0)
+                        //    Console.WriteLine($"Setting mesh's normals! At offset 0x{memoryStream.Position.ToString("X")}");
                         float num40 = (float)binaryReader.ReadSByte() / 128f;
                         float num41 = (float)binaryReader.ReadSByte() / 128f;
                         float num42 = (float)binaryReader.ReadSByte() / 128f;
@@ -443,22 +480,32 @@ namespace XBC2ModelDecomp
                     if (num48 >= 0)
                     {
                         memoryStream.Seek((long)(meshesPointers[currentMesh] + j * array12[currentMesh] + num48), SeekOrigin.Begin);
-                        if (currentMesh == 0)
-                            Console.WriteLine($"Setting mesh's weight ids! At offset 0x{memoryStream.Position.ToString("X")}");
-                        int key = (int)binaryReader.ReadByte();
-                        meshWeightIds[j, 0] = dictionary2[dictionary[key]];
-                        key = (int)binaryReader.ReadByte();
-                        meshWeightIds[j, 1] = dictionary2[dictionary[key]];
-                        key = (int)binaryReader.ReadByte();
-                        meshWeightIds[j, 2] = dictionary2[dictionary[key]];
-                        key = (int)binaryReader.ReadByte();
-                        meshWeightIds[j, 3] = dictionary2[dictionary[key]];
+                        //if (currentMesh == 0)
+                        //    Console.WriteLine($"Setting mesh's weight ids! At offset 0x{memoryStream.Position.ToString("X")}");
+                        try
+                        {
+                            int key = (int)binaryReader.ReadByte();
+                            meshWeightIds[j, 0] = dictionary2[dictionary[key]];
+                            key = (int)binaryReader.ReadByte();
+                            meshWeightIds[j, 1] = dictionary2[dictionary[key]];
+                            key = (int)binaryReader.ReadByte();
+                            meshWeightIds[j, 2] = dictionary2[dictionary[key]];
+                            key = (int)binaryReader.ReadByte();
+                            meshWeightIds[j, 3] = dictionary2[dictionary[key]];
+                        }
+                        catch
+                        {
+                            meshWeightIds[j, 0] = 0;
+                            meshWeightIds[j, 1] = 0;
+                            meshWeightIds[j, 2] = 0;
+                            meshWeightIds[j, 3] = 0;
+                        }
                     }
                     if (num47 >= 0)
                     {
                         memoryStream.Seek((long)(meshesPointers[currentMesh] + j * array12[currentMesh] + num47), SeekOrigin.Begin);
-                        if (currentMesh == 0)
-                            Console.WriteLine($"Setting mesh's weight values! At offset 0x{memoryStream.Position.ToString("X")}");
+                        //if (currentMesh == 0)
+                        //    Console.WriteLine($"Setting mesh's weight values! At offset 0x{memoryStream.Position.ToString("X")}");
                         meshWeightValues[j, 0] = (float)binaryReader.ReadUInt16() / 65535f;
                         meshWeightValues[j, 1] = (float)binaryReader.ReadUInt16() / 65535f;
                         meshWeightValues[j, 2] = (float)binaryReader.ReadUInt16() / 65535f;
@@ -494,7 +541,7 @@ namespace XBC2ModelDecomp
             int flexAndMeshCount = 0;
             for (i = 0; i < num30; i++)
             {
-                if (array30[i] < 2)
+                if (meshVertexCount[i] < 2)
                 {
                     flexAndMeshCount++;
                     if (array29[i] != 0 && exportFlexes)
@@ -536,7 +583,7 @@ namespace XBC2ModelDecomp
                 }
                 for (i = 0; i < num30; i++)
                 {
-                    if (array30[i] <= 1)
+                    if (meshVertexCount[i] <= 1)
                     {
                         int curMesh = array27[i];
                         int curMeshIndex = array28[i];
@@ -654,7 +701,7 @@ namespace XBC2ModelDecomp
             
 
             int i = 0;
-            while (i < textureIdCount)
+            while (i < textureIdCount-1)
             {
                 msCurFile = XBC1(fsWISMT, brWISMT, fileOffsets[i + 2]);
                 brCurFile = new BinaryReader(msCurFile);

@@ -15,8 +15,6 @@ namespace XBC2ModelDecomp
 
         public ModelTools(string[] args)
         {
-            
-
             //wismt
             FileStream fsWISMT = new FileStream(Path.GetFileNameWithoutExtension(args[0]) + ".wismt", FileMode.Open, FileAccess.Read);
             BinaryReader brWISMT = new BinaryReader(fsWISMT);
@@ -98,7 +96,7 @@ namespace XBC2ModelDecomp
                     Directory.CreateDirectory(texturesFolderPath);
                 ft.ReadTextures(fsWISMT, brWISMT, texturesFolderPath, fileOffsets, textureIdCount, someVarietyOfPointer, textureNames, textureIds);
 
-                msCurFile = ft.XBC1(fsWISMT, brWISMT, fileOffsets[0]);
+                msCurFile = ft.XBC1(fsWISMT, brWISMT, fileOffsets[0]/*, "meshfile.bin", Path.GetFileNameWithoutExtension(args[0]) + "_files"*/);
             }
 
 
@@ -106,11 +104,16 @@ namespace XBC2ModelDecomp
             //start mesh file
             
             if (!(textureIdCount > 0 && offsetTextureCount > 0))
-                msCurFile = ft.XBC1(fsWISMT, brWISMT, offsetMain + offsetTextureIds);
-            BinaryReader brCurFile = new BinaryReader(msCurFile); //start new file
-            ft.ModelToASCII(msCurFile, brCurFile, args);
-            //Console.ReadKey();
-            //Environment.Exit(0);
+                msCurFile = ft.XBC1(fsWISMT, brWISMT, offsetMain + offsetTextureIds/*, "meshfile.bin", Path.GetFileNameWithoutExtension(args[0]) + "_files"*/);
+            if (msCurFile != null)
+            {
+                BinaryReader brCurFile = new BinaryReader(msCurFile); //start new file
+                ft.ModelToASCII(msCurFile, brCurFile, args);
+            } else
+            {
+                Console.WriteLine("mesh pointer wrong!");
+            }
+            
         }
     }
 }

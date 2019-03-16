@@ -9,8 +9,6 @@ namespace XBC2ModelDecomp
 {   
     public class Program
     {
-        
-
         public static void Main(string[] args)
         {
             FormatTools ft = new FormatTools();
