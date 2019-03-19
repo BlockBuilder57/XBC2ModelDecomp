@@ -27,7 +27,10 @@ namespace XBC2ModelDecomp
             fileStream.Seek(offset, SeekOrigin.Begin);
             int XBC1Magic = binaryReader.ReadInt32(); //nice meme
             if (XBC1Magic != 0x31636278)
+            {
+                Console.WriteLine("xbc1 header invalid!");
                 return null;
+            }
             binaryReader.ReadInt32();
             int outputFileSize = binaryReader.ReadInt32();
             int compressedLength = binaryReader.ReadInt32();
@@ -362,7 +365,7 @@ namespace XBC2ModelDecomp
 
             //begin ascii
             //bone time
-            StreamWriter asciiWriter = new StreamWriter(Path.GetDirectoryName(args[0]) + "\\" + Path.GetFileNameWithoutExtension(args[0]) + ".ascii");
+            StreamWriter asciiWriter = new StreamWriter(Path.GetFileNameWithoutExtension(args[0]) + ".ascii");
             asciiWriter.WriteLine(boneCount);
             for (int j = 0; j < boneCount; j++)
             {
@@ -678,19 +681,20 @@ namespace XBC2ModelDecomp
                 }
             }
 
+            asciiWriter.Flush();
             asciiWriter.Close();
         }
 
-        public void ReadTextures(FileStream fsWISMT, BinaryReader brWISMT, string texturesFolderPath, int[] fileOffsets, int textureIdCount, int[] someVarietyOfPointer, string[] textureNames, int[] textureIds)
+        public void ReadTextures(FileStream fsWISMT, BinaryReader brWISMT, Structs.DRSM DRSM, string texturesFolderPath)
         {
-            MemoryStream msCurFile = XBC1(fsWISMT, brWISMT, fileOffsets[1]);
+            MemoryStream msCurFile = XBC1(fsWISMT, brWISMT, DRSM.TOC[1].Offset);
             BinaryReader brCurFile = new BinaryReader(msCurFile);
-            int[] array44 = new int[textureIdCount];
-            int[] array45 = new int[textureIdCount];
-            int[] array46 = new int[textureIdCount];
-            for (int j = 0; j < textureIdCount; j++)
+            int[] array44 = new int[DRSM.TextureIdsCount];
+            int[] array45 = new int[DRSM.TextureIdsCount];
+            int[] array46 = new int[DRSM.TextureIdsCount];
+            for (int j = 0; j < DRSM.TextureIdsCount; j++)
             {
-                msCurFile.Seek((long)(someVarietyOfPointer[j + 3] - 32), SeekOrigin.Begin);
+                msCurFile.Seek(DRSM.DataItems[j + 3].Offset + DRSM.DataItems[j + 3].Size - 32, SeekOrigin.Begin);
                 array44[j] = brCurFile.ReadInt32();
                 array45[j] = brCurFile.ReadInt32();
                 brCurFile.ReadInt32();
@@ -698,12 +702,10 @@ namespace XBC2ModelDecomp
                 array46[j] = brCurFile.ReadInt32();
             }
 
-            
-
             int i = 0;
-            while (i < textureIdCount-1)
+            while (i < DRSM.TextureIdsCount - 1)
             {
-                msCurFile = XBC1(fsWISMT, brWISMT, fileOffsets[i + 2]);
+                msCurFile = XBC1(fsWISMT, brWISMT, DRSM.TOC[i + 2].Offset);
                 brCurFile = new BinaryReader(msCurFile);
                 int DDSDepth = 1;
                 int num67;
@@ -771,7 +773,7 @@ namespace XBC2ModelDecomp
                         "\\",
                         i.ToString("d2"),
                         "_",
-                        textureNames[textureIds[i]],
+                        DRSM.TextureNames[DRSM.TextureIds[i]],
                         ".tga"
                     }), FileMode.Create);
                     BinaryWriter binaryWriter = new BinaryWriter(fileStream4);
@@ -793,7 +795,7 @@ namespace XBC2ModelDecomp
                         "\\",
                         i.ToString("d2"),
                         "_",
-                        textureNames[textureIds[i]],
+                        DRSM.TextureNames[DRSM.TextureIds[i]],
                         ".dds"
                     }), FileMode.Create);
                     BinaryWriter binaryWriter = new BinaryWriter(fileStream4);

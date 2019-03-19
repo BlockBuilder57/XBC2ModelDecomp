@@ -19,101 +19,106 @@ namespace XBC2ModelDecomp
             FileStream fsWISMT = new FileStream(Path.GetFileNameWithoutExtension(args[0]) + ".wismt", FileMode.Open, FileAccess.Read);
             BinaryReader brWISMT = new BinaryReader(fsWISMT);
 
-            fsWISMT.Seek(12L, SeekOrigin.Current);
-            int offsetMain = brWISMT.ReadInt32(); //0xC 0x10, 16
-            brWISMT.ReadInt32();
-            brWISMT.ReadInt32();
-            int num3 = brWISMT.ReadInt32(); //0x18 0x10, 16
-            int num4 = brWISMT.ReadInt32(); //0x1C 0x4C, 76
-            int fileCount = brWISMT.ReadInt32(); //0x20 0xE, 14
-            int num6 = brWISMT.ReadInt32(); //0x24 0x18C, 396
-            brWISMT.ReadInt32();
-            brWISMT.ReadInt32();
-            brWISMT.ReadInt32();
-            brWISMT.ReadInt32();
-            brWISMT.ReadInt32();
-            brWISMT.ReadInt32();
-            brWISMT.ReadInt32();
-            int textureIdCount = brWISMT.ReadInt32(); //0x44
-            int offsetTextureIds = brWISMT.ReadInt32(); //0x48 0x234, 564
-            int offsetTextureCount = brWISMT.ReadInt32(); //0x4C 0x24E, 590
-            fsWISMT.Seek(offsetMain + offsetTextureIds, SeekOrigin.Begin); //0x244, 580
+            int DRSMMagic = brWISMT.ReadInt32();
+            if (DRSMMagic != 0x4D535244)
+            {
+                Console.WriteLine("wismt is corrupt!");
+                return;
+            }
+
+            Structs.DRSM DRSM = new Structs.DRSM
+            {
+                Version = brWISMT.ReadInt32(),
+                HeaderSize = brWISMT.ReadInt32(),
+                MainOffset = brWISMT.ReadInt32(), //0xC 0x10, 16
+
+                Tag = brWISMT.ReadInt32(),
+                Revision = brWISMT.ReadInt32(),
+
+                DataItemsCount = brWISMT.ReadInt32(), //0x18 0x10, 16
+                DataItemsOffset = brWISMT.ReadInt32(), //0x1C 0x4C, 76
+                FileCount = brWISMT.ReadInt32(), //0x20 0xE, 14
+                TOCOffset = brWISMT.ReadInt32(), //0x24 0x18C, 396
+
+                Unknown1 = brWISMT.ReadBytes(28),
+
+                TextureIdsCount = brWISMT.ReadInt32(), //0x44
+                TextureIdsOffset = brWISMT.ReadInt32(), //0x48 0x234, 564
+                TextureCountOffset = brWISMT.ReadInt32() //0x4C 0x24E, 590
+            };
+
+            DRSM.DataItems = new Structs.DRSMDataItem[DRSM.DataItemsCount];
+            fsWISMT.Seek(DRSM.MainOffset + DRSM.DataItemsOffset, SeekOrigin.Begin); //0x5C, 92
+            for (int i = 0; i < DRSM.DataItemsCount; i++)
+            {
+                DRSM.DataItems[i] = new Structs.DRSMDataItem
+                {
+                    Offset = brWISMT.ReadInt32(),
+                    Size = brWISMT.ReadInt32(),
+                    id1 = brWISMT.ReadInt16(),
+                    Type = (Structs.DRSMDataItemTypes)brWISMT.ReadInt16()
+                };
+                fsWISMT.Seek(0x8, SeekOrigin.Current);
+            }
 
             MemoryStream msCurFile = new MemoryStream();
 
-            if (textureIdCount > 0 && offsetTextureCount > 0)
+            if (DRSM.TextureIdsCount > 0 && DRSM.TextureCountOffset > 0)
             {
-                int[] textureIds = new int[textureIdCount];
-                for (int curTextureId = 0; curTextureId < textureIdCount; curTextureId++)
+                fsWISMT.Seek(DRSM.MainOffset + DRSM.TextureIdsOffset, SeekOrigin.Begin); //0x244, 580
+                DRSM.TextureIds = new short[DRSM.TextureIdsCount];
+                for (int curTextureId = 0; curTextureId < DRSM.TextureIdsCount; curTextureId++)
                 {
-                    textureIds[curTextureId] = (int)brWISMT.ReadInt16();
+                    DRSM.TextureIds[curTextureId] = brWISMT.ReadInt16();
                 }
 
-                fsWISMT.Seek(offsetMain + offsetTextureCount, SeekOrigin.Begin); //0x25E, 606
-                int textureCount = brWISMT.ReadInt32(); //0x25E
-                brWISMT.ReadInt32();
-                brWISMT.ReadInt32();
-                brWISMT.ReadInt32();
+                fsWISMT.Seek(DRSM.MainOffset + DRSM.TextureCountOffset, SeekOrigin.Begin); //0x25E, 606
+                DRSM.TextureCount = brWISMT.ReadInt32(); //0x25E
+                DRSM.TextureChunkSize = brWISMT.ReadInt32();
+                DRSM.Unknown2 = brWISMT.ReadInt32();
+                DRSM.TextureStringBufferOffset = brWISMT.ReadInt32();
 
-                int[] textureNameOffsets = new int[textureCount];
-                for (int curTextureNameOffset = 0; curTextureNameOffset < textureCount; curTextureNameOffset++)
+                DRSM.TextureInfo = new Structs.DRSMTextureInfo[DRSM.TextureCount];
+                for (int curTextureNameOffset = 0; curTextureNameOffset < DRSM.TextureCount; curTextureNameOffset++)
                 {
-                    brWISMT.ReadInt32();
-                    brWISMT.ReadInt32();
-                    brWISMT.ReadInt32();
-                    textureNameOffsets[curTextureNameOffset] = brWISMT.ReadInt32();
+                    DRSM.TextureInfo[curTextureNameOffset].Unknown1 = brWISMT.ReadInt32();
+                    DRSM.TextureInfo[curTextureNameOffset].Size = brWISMT.ReadInt32();
+                    DRSM.TextureInfo[curTextureNameOffset].Offset = brWISMT.ReadInt32();
+                    DRSM.TextureInfo[curTextureNameOffset].StringOffset = brWISMT.ReadInt32();
                 }
 
-                string[] textureNames = new string[textureCount];
-                for (int curTextureName = 0; curTextureName < textureCount; curTextureName++)
+                DRSM.TextureNames = new string[DRSM.TextureCount];
+                for (int curTextureName = 0; curTextureName < DRSM.TextureCount; curTextureName++)
                 {
-                    fsWISMT.Seek(offsetMain + offsetTextureCount + textureNameOffsets[curTextureName], SeekOrigin.Begin);
-                    textureNames[curTextureName] = FormatTools.ReadNullTerminatedString(brWISMT);
+                    fsWISMT.Seek(DRSM.MainOffset + DRSM.TextureCountOffset + DRSM.TextureInfo[curTextureName].StringOffset, SeekOrigin.Begin);
+                    DRSM.TextureNames[curTextureName] = FormatTools.ReadNullTerminatedString(brWISMT);
                 }
 
-                int[] someVarietyOfPointer = new int[num3]; //16 elements
-                fsWISMT.Seek((long)(offsetMain + num4), SeekOrigin.Begin); //0x5C, 92
-                for (int i = 0; i < num3; i++)
+                DRSM.TOC = new Structs.TOC[DRSM.FileCount];
+                fsWISMT.Seek(DRSM.MainOffset + DRSM.TOCOffset, SeekOrigin.Begin);
+                for (int curFileOffset = 0; curFileOffset < DRSM.FileCount; curFileOffset++)
                 {
-                    someVarietyOfPointer[i] = brWISMT.ReadInt32() + brWISMT.ReadInt32();
-                    brWISMT.ReadInt32();
-                    brWISMT.ReadInt32();
-                    brWISMT.ReadInt32();
-                }
-
-                int[] fileOffsets = new int[fileCount];
-                int[] fileSizes = new int[fileCount];
-                fsWISMT.Seek((long)(offsetMain + num6), SeekOrigin.Begin);
-                for (int curFileOffset = 0; curFileOffset < fileCount; curFileOffset++)
-                {
-                    fileSizes[curFileOffset] = brWISMT.ReadInt32();
-                    brWISMT.ReadInt32();
-                    fileOffsets[curFileOffset] = brWISMT.ReadInt32();
+                    DRSM.TOC[curFileOffset].CompSize = brWISMT.ReadInt32();
+                    DRSM.TOC[curFileOffset].FileSize = brWISMT.ReadInt32();
+                    DRSM.TOC[curFileOffset].Offset = brWISMT.ReadInt32();
                 }
 
                 string texturesFolderPath = Path.GetFileNameWithoutExtension(args[0]) + "_textures";
                 if (!Directory.Exists(texturesFolderPath))
                     Directory.CreateDirectory(texturesFolderPath);
-                ft.ReadTextures(fsWISMT, brWISMT, texturesFolderPath, fileOffsets, textureIdCount, someVarietyOfPointer, textureNames, textureIds);
+                ft.ReadTextures(fsWISMT, brWISMT, DRSM, texturesFolderPath);
 
-                msCurFile = ft.XBC1(fsWISMT, brWISMT, fileOffsets[0]/*, "meshfile.bin", Path.GetFileNameWithoutExtension(args[0]) + "_files"*/);
+                msCurFile = ft.XBC1(fsWISMT, brWISMT, DRSM.TOC[0].Offset/*, "meshfile.bin", Path.GetFileNameWithoutExtension(args[0]) + "_files"*/);
             }
 
-
-
             //start mesh file
-            
-            if (!(textureIdCount > 0 && offsetTextureCount > 0))
-                msCurFile = ft.XBC1(fsWISMT, brWISMT, offsetMain + offsetTextureIds/*, "meshfile.bin", Path.GetFileNameWithoutExtension(args[0]) + "_files"*/);
             if (msCurFile != null)
             {
                 BinaryReader brCurFile = new BinaryReader(msCurFile); //start new file
                 ft.ModelToASCII(msCurFile, brCurFile, args);
-            } else
-            {
-                Console.WriteLine("mesh pointer wrong!");
             }
-            
+            else
+                Console.WriteLine("mesh pointer wrong!");
         }
     }
 }

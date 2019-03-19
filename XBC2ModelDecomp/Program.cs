@@ -15,7 +15,7 @@ namespace XBC2ModelDecomp
 
             if (args.Length == 0)
             {
-                Console.WriteLine("For models, a .wismt, .wimdo, and a .arc file must exist with the same name in the same directory in order for the file to be extracted.");
+                Console.WriteLine("For models, a .wismt, .wimdo, and a .arc file must exist with the same name in the same directory in order for the file to be fully extracted.");
                 Environment.Exit(0);
             }
 
@@ -32,7 +32,7 @@ namespace XBC2ModelDecomp
                 case "wismt":
                     new ModelTools(args);
                     break;
-                case "bin":
+                case "bin": //assume it's a raw model file
                     FileStream fs = new FileStream(args[0], FileMode.Open, FileAccess.Read);
                     MemoryStream ms = new MemoryStream();
                     fs.CopyTo(ms);
