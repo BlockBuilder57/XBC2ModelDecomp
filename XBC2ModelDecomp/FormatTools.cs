@@ -176,8 +176,8 @@ namespace XBC2ModelDecomp
                 BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
                 brWIMDO.ReadInt32(); //0x0
                 brWIMDO.ReadInt32(); //0x4
-                int num23 = brWIMDO.ReadInt32(); //0x8
-                fsWIMDO.Seek(num23 + 0x1C, SeekOrigin.Begin);
+                int ModelStructOffset = brWIMDO.ReadInt32(); //0x8
+                fsWIMDO.Seek(ModelStructOffset + 0x1C, SeekOrigin.Begin);
                 int num24 = brWIMDO.ReadInt32(); //0x6C
                 brWIMDO.ReadInt32(); //0x70
                 brWIMDO.ReadInt32(); //0x74
@@ -187,26 +187,26 @@ namespace XBC2ModelDecomp
                 meshFlexNames = null;
                 if (num26 > 0)
                 {
-                    fsWIMDO.Seek((long)(num23 + num26), SeekOrigin.Begin);
+                    fsWIMDO.Seek((long)(ModelStructOffset + num26), SeekOrigin.Begin);
                     int num27 = brWIMDO.ReadInt32();
                     int num28 = brWIMDO.ReadInt32();
                     int[] array26 = new int[num28];
                     meshFlexNames = new string[num28];
                     for (i = 0; i < num28; i++)
                     {
-                        fsWIMDO.Seek((long)(num23 + num26 + num27 + i * 28), SeekOrigin.Begin);
+                        fsWIMDO.Seek((long)(ModelStructOffset + num26 + num27 + i * 28), SeekOrigin.Begin);
                         array26[i] = brWIMDO.ReadInt32();
                     }
                     for (i = 0; i < num28; i++)
                     {
-                        fsWIMDO.Seek((long)(num23 + num26 + array26[i]), SeekOrigin.Begin);
+                        fsWIMDO.Seek((long)(ModelStructOffset + num26 + array26[i]), SeekOrigin.Begin);
                         meshFlexNames[i] = FormatTools.ReadNullTerminatedString(brWIMDO);
                     }
                 }
-                fsWIMDO.Seek((long)(num23 + num24), SeekOrigin.Begin);
+                fsWIMDO.Seek((long)(ModelStructOffset + num24), SeekOrigin.Begin);
                 int num29 = brWIMDO.ReadInt32();
                 num30 = brWIMDO.ReadInt32();
-                fsWIMDO.Seek((long)(num23 + num29), SeekOrigin.Begin);
+                fsWIMDO.Seek((long)(ModelStructOffset + num29), SeekOrigin.Begin);
                 array27 = new int[num30];
                 array28 = new int[num30];
                 array29 = new int[num30];
@@ -232,15 +232,15 @@ namespace XBC2ModelDecomp
                     brWIMDO.ReadInt32();
                 }
 
-                fsWIMDO.Seek((long)(num23 + num25), SeekOrigin.Begin);
+                fsWIMDO.Seek((long)(ModelStructOffset + num25), SeekOrigin.Begin);
                 int num31 = brWIMDO.ReadInt32();
                 brWIMDO.ReadInt32();
                 int num32 = brWIMDO.ReadInt32();
-                fsWIMDO.Seek((long)(num23 + num25 + num32), SeekOrigin.Begin);
+                fsWIMDO.Seek((long)(ModelStructOffset + num25 + num32), SeekOrigin.Begin);
                 int[] array31 = new int[num31];
                 for (i = 0; i < num31; i++)
                 {
-                    array31[i] = num23 + num25 + brWIMDO.ReadInt32();
+                    array31[i] = ModelStructOffset + num25 + brWIMDO.ReadInt32();
                     fsWIMDO.Seek(20L, SeekOrigin.Current);
                 }
                 dictionary = new Dictionary<int, string>();
@@ -685,16 +685,16 @@ namespace XBC2ModelDecomp
             asciiWriter.Close();
         }
 
-        public void ReadTextures(FileStream fsWISMT, BinaryReader brWISMT, Structs.DRSM DRSM, string texturesFolderPath)
+        public void ReadTextures(FileStream fsWISMT, BinaryReader brWISMT, Structs.MSRD MSRD, string texturesFolderPath)
         {
-            MemoryStream msCurFile = XBC1(fsWISMT, brWISMT, DRSM.TOC[1].Offset);
+            MemoryStream msCurFile = XBC1(fsWISMT, brWISMT, MSRD.TOC[1].Offset);
             BinaryReader brCurFile = new BinaryReader(msCurFile);
-            int[] array44 = new int[DRSM.TextureIdsCount];
-            int[] array45 = new int[DRSM.TextureIdsCount];
-            int[] array46 = new int[DRSM.TextureIdsCount];
-            for (int j = 0; j < DRSM.TextureIdsCount; j++)
+            int[] array44 = new int[MSRD.TextureIdsCount];
+            int[] array45 = new int[MSRD.TextureIdsCount];
+            int[] array46 = new int[MSRD.TextureIdsCount];
+            for (int j = 0; j < MSRD.TextureIdsCount; j++)
             {
-                msCurFile.Seek(DRSM.DataItems[j + 3].Offset + DRSM.DataItems[j + 3].Size - 32, SeekOrigin.Begin);
+                msCurFile.Seek(MSRD.DataItems[j + 3].Offset + MSRD.DataItems[j + 3].Size - 32, SeekOrigin.Begin);
                 array44[j] = brCurFile.ReadInt32();
                 array45[j] = brCurFile.ReadInt32();
                 brCurFile.ReadInt32();
@@ -703,9 +703,9 @@ namespace XBC2ModelDecomp
             }
 
             int i = 0;
-            while (i < DRSM.TextureIdsCount - 1)
+            while (i < MSRD.TextureIdsCount - 1)
             {
-                msCurFile = XBC1(fsWISMT, brWISMT, DRSM.TOC[i + 2].Offset);
+                msCurFile = XBC1(fsWISMT, brWISMT, MSRD.TOC[i + 2].Offset);
                 brCurFile = new BinaryReader(msCurFile);
                 int DDSDepth = 1;
                 int num67;
@@ -773,7 +773,7 @@ namespace XBC2ModelDecomp
                         "\\",
                         i.ToString("d2"),
                         "_",
-                        DRSM.TextureNames[DRSM.TextureIds[i]],
+                        MSRD.TextureNames[MSRD.TextureIds[i]],
                         ".tga"
                     }), FileMode.Create);
                     BinaryWriter binaryWriter = new BinaryWriter(fileStream4);
@@ -795,7 +795,7 @@ namespace XBC2ModelDecomp
                         "\\",
                         i.ToString("d2"),
                         "_",
-                        DRSM.TextureNames[DRSM.TextureIds[i]],
+                        MSRD.TextureNames[MSRD.TextureIds[i]],
                         ".dds"
                     }), FileMode.Create);
                     BinaryWriter binaryWriter = new BinaryWriter(fileStream4);
