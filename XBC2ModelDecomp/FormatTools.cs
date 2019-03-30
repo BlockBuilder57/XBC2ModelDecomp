@@ -475,11 +475,15 @@ namespace XBC2ModelDecomp
 
             //these will be deleted eventually once I get skeleton and mesh reading, considering they're redundant
 
-            string[] meshFlexNames = new string[MXMD.ModelStruct.MorphNames.Count];
-            for (int r = 0; r < MXMD.ModelStruct.MorphNames.Count; r++)
+            string[] meshFlexNames = new string[MXMD.ModelStruct.MorphControls.Controls.Length];
+            for (int r = 0; r < MXMD.ModelStruct.MorphControls.Controls.Length; r++)
             {
-                meshFlexNames[r] = MXMD.ModelStruct.MorphNames.Names[r].Name;
+                meshFlexNames[r] = MXMD.ModelStruct.MorphControls.Controls[r].Name;
             }
+
+            foreach (string lon in meshFlexNames)
+                Console.WriteLine(lon);
+            Console.ReadLine();
 
             int MeshesTableCount = MXMD.ModelStruct.Meshes.TableCount;
 
@@ -860,7 +864,7 @@ namespace XBC2ModelDecomp
                             }
                             if (flexIndex > 0)
                             {
-                                asciiWriter.WriteLine($"sm_{i}_{MXMD.ModelStruct.MorphNames.Names[flexIndex - 1].Name}"); //mesh name (+ flex name)
+                                asciiWriter.WriteLine($"sm_{i}_{meshFlexNames[flexIndex - 1]}"); //mesh name (+ flex name)
                             }
                             else
                             {
