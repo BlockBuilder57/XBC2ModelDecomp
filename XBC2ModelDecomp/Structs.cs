@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -63,6 +64,8 @@ namespace XBC2ModelDecomp
             public int CompSize;
             public int FileSize;
             public int Offset;
+
+            public MemoryStream MemoryStream;
         }
 
         public struct MSRDTexture
@@ -127,7 +130,7 @@ namespace XBC2ModelDecomp
 
         public struct MXMDMorphControls
         {
-            public int Unknown1;
+            public int TableOffset;
             public int Count;
 
             public byte[] Unknown2; //0x10 long
@@ -147,7 +150,7 @@ namespace XBC2ModelDecomp
 
         public struct MXMDMorphNames
         {
-            public int Unknown1;
+            public int TableOffset;
             public int Count;
 
             public byte[] Unknown2; //0x20 long
@@ -219,6 +222,45 @@ namespace XBC2ModelDecomp
             public int ID;
             public int Unknown3;
             public int Unknown4;
+
+            public string Name; //not in struct
+
+            public Quaternion Scale;
+            public Quaternion Rotation;
+            public Quaternion Position;
+
+            public Quaternion ParentTransform;
+        }
+
+
+        //SAR1
+        public struct SAR1
+        {
+            public int FileSize;
+            public int Version;
+            public int NumFiles;
+            public int Offset;
+            public int DataOffset;
+            public int Unknown1;
+            public int Unknown2;
+
+            public SARFile[] Files;
+        }
+
+        public struct SARFile
+        {
+            public int Offset;
+            public int Size;
+            public int Unknown1;
+            public string Filename;
+        }
+
+        public struct SARBC
+        {
+            public int BlockCount;
+            public int FileSize;
+            public int PointerCount;
+
         }
     }
 }

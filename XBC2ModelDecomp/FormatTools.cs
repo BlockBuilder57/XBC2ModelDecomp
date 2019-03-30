@@ -24,6 +24,8 @@ namespace XBC2ModelDecomp
 
         public MemoryStream XBC1(FileStream fileStream, BinaryReader binaryReader, int offset, string saveToFileName = "", string savetoFilePath = "")
         {
+            if (fileStream == null || binaryReader == null || offset > fileStream.Length || offset < 0)
+                return null;
             fileStream.Seek(offset, SeekOrigin.Begin);
             int XBC1Magic = binaryReader.ReadInt32(); //nice meme
             if (XBC1Magic != 0x31636278)
@@ -60,6 +62,312 @@ namespace XBC2ModelDecomp
 
             msFile.Seek(0L, SeekOrigin.Begin);
             return msFile;
+        }
+
+        public Structs.MSRD ReadMSRD(FileStream fsWISMT, BinaryReader brWISMT)
+        {
+            int MSRDMagic = brWISMT.ReadInt32();
+            if (MSRDMagic != 0x4D535244)
+            {
+                Console.WriteLine("wismt is corrupt (or wrong endianness)!");
+                return new Structs.MSRD { Version = Int32.MaxValue };
+            }
+
+            Structs.MSRD MSRD = new Structs.MSRD
+            {
+                Version = brWISMT.ReadInt32(),
+                HeaderSize = brWISMT.ReadInt32(),
+                MainOffset = brWISMT.ReadInt32(), //0xC 0x10, 16
+
+                Tag = brWISMT.ReadInt32(),
+                Revision = brWISMT.ReadInt32(),
+
+                DataItemsCount = brWISMT.ReadInt32(), //0x18 0x10, 16
+                DataItemsOffset = brWISMT.ReadInt32(), //0x1C 0x4C, 76
+                FileCount = brWISMT.ReadInt32(), //0x20 0xE, 14
+                TOCOffset = brWISMT.ReadInt32(), //0x24 0x18C, 396
+
+                Unknown1 = brWISMT.ReadBytes(28),
+
+                TextureIdsCount = brWISMT.ReadInt32(), //0x44
+                TextureIdsOffset = brWISMT.ReadInt32(), //0x48 0x234, 564
+                TextureCountOffset = brWISMT.ReadInt32() //0x4C 0x24E, 590
+            };
+
+            MSRD.DataItems = new Structs.MSRDDataItem[MSRD.DataItemsCount];
+            fsWISMT.Seek(MSRD.MainOffset + MSRD.DataItemsOffset, SeekOrigin.Begin); //0x5C, 92
+            for (int i = 0; i < MSRD.DataItemsCount; i++)
+            {
+                MSRD.DataItems[i] = new Structs.MSRDDataItem
+                {
+                    Offset = brWISMT.ReadInt32(),
+                    Size = brWISMT.ReadInt32(),
+                    id1 = brWISMT.ReadInt16(),
+                    Type = (Structs.MSRDDataItemTypes)brWISMT.ReadInt16()
+                };
+                fsWISMT.Seek(0x8, SeekOrigin.Current);
+            }
+
+            MemoryStream msCurFile = new MemoryStream();
+
+            if (MSRD.TextureIdsCount > 0 && MSRD.TextureCountOffset > 0)
+            {
+                fsWISMT.Seek(MSRD.MainOffset + MSRD.TextureIdsOffset, SeekOrigin.Begin); //0x244, 580
+                MSRD.TextureIds = new short[MSRD.TextureIdsCount];
+                for (int curTextureId = 0; curTextureId < MSRD.TextureIdsCount; curTextureId++)
+                {
+                    MSRD.TextureIds[curTextureId] = brWISMT.ReadInt16();
+                }
+
+                fsWISMT.Seek(MSRD.MainOffset + MSRD.TextureCountOffset, SeekOrigin.Begin); //0x25E, 606
+                MSRD.TextureCount = brWISMT.ReadInt32(); //0x25E
+                MSRD.TextureChunkSize = brWISMT.ReadInt32();
+                MSRD.Unknown2 = brWISMT.ReadInt32();
+                MSRD.TextureStringBufferOffset = brWISMT.ReadInt32();
+
+                MSRD.TextureInfo = new Structs.MSRDTextureInfo[MSRD.TextureCount];
+                for (int curTextureNameOffset = 0; curTextureNameOffset < MSRD.TextureCount; curTextureNameOffset++)
+                {
+                    MSRD.TextureInfo[curTextureNameOffset].Unknown1 = brWISMT.ReadInt32();
+                    MSRD.TextureInfo[curTextureNameOffset].Size = brWISMT.ReadInt32();
+                    MSRD.TextureInfo[curTextureNameOffset].Offset = brWISMT.ReadInt32();
+                    MSRD.TextureInfo[curTextureNameOffset].StringOffset = brWISMT.ReadInt32();
+                }
+
+                MSRD.TextureNames = new string[MSRD.TextureCount];
+                for (int curTextureName = 0; curTextureName < MSRD.TextureCount; curTextureName++)
+                {
+                    fsWISMT.Seek(MSRD.MainOffset + MSRD.TextureCountOffset + MSRD.TextureInfo[curTextureName].StringOffset, SeekOrigin.Begin);
+                    MSRD.TextureNames[curTextureName] = FormatTools.ReadNullTerminatedString(brWISMT);
+                }
+
+                MSRD.TOC = new Structs.TOC[MSRD.FileCount];
+                for (int curFileOffset = 0; curFileOffset < MSRD.FileCount; curFileOffset++)
+                {
+                    fsWISMT.Seek(MSRD.MainOffset + MSRD.TOCOffset + (curFileOffset * 12), SeekOrigin.Begin); //prevents errors I guess
+                    MSRD.TOC[curFileOffset].CompSize = brWISMT.ReadInt32();
+                    MSRD.TOC[curFileOffset].FileSize = brWISMT.ReadInt32();
+                    MSRD.TOC[curFileOffset].Offset = brWISMT.ReadInt32();
+
+                    MSRD.TOC[curFileOffset].MemoryStream = XBC1(fsWISMT, brWISMT, MSRD.TOC[curFileOffset].Offset);
+                    /*, $"file{curFileOffset}.bin", Path.GetFileNameWithoutExtension(args[0]) + "_files"*/
+                }
+            }
+
+            return MSRD;
+        }
+
+        public Structs.MXMD ReadMXMD(FileStream fsWIMDO, BinaryReader brWIMDO)
+        {
+            int MXMDMagic = brWIMDO.ReadInt32();
+            if (MXMDMagic != 0x4D584D44)
+            {
+                Console.WriteLine("wimdo is corrupt (or wrong endianness)!");
+                return new Structs.MXMD { Version = Int32.MaxValue };
+            }
+
+            Structs.MXMD MXMD = new Structs.MXMD
+            {
+                Version = brWIMDO.ReadInt32(),
+
+                ModelStructOffset = brWIMDO.ReadInt32(),
+                MaterialsOffset = brWIMDO.ReadInt32(),
+
+                Unknown1 = brWIMDO.ReadInt32(),
+
+                VertexBufferOffset = brWIMDO.ReadInt32(),
+                ShadersOffset = brWIMDO.ReadInt32(),
+                CachedTexturesTableOffset = brWIMDO.ReadInt32(),
+                Unknown2 = brWIMDO.ReadInt32(),
+                UncachedTexturesTableOffset = brWIMDO.ReadInt32(),
+
+                Unknown3 = brWIMDO.ReadBytes(0x28)
+            };
+
+            MXMD.ModelStruct = new Structs.MXMDModelStruct
+            {
+                Unknown1 = brWIMDO.ReadInt32(),
+                BoundingBoxStart = new Vector3(brWIMDO.ReadSingle(), brWIMDO.ReadSingle(), brWIMDO.ReadSingle()),
+                BoundingBoxEnd = new Vector3(brWIMDO.ReadSingle(), brWIMDO.ReadSingle(), brWIMDO.ReadSingle()),
+                MeshesOffset = brWIMDO.ReadInt32(),
+                Unknown2 = brWIMDO.ReadInt32(),
+                Unknown3 = brWIMDO.ReadInt32(),
+                NodesOffset = brWIMDO.ReadInt32(),
+
+                Unknown4 = brWIMDO.ReadBytes(0x54),
+
+                MorphControllersOffset = brWIMDO.ReadInt32(),
+                MorphNamesOffset = brWIMDO.ReadInt32()
+            };
+
+            if (MXMD.ModelStruct.MorphControllersOffset != 0)
+            {
+                fsWIMDO.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MorphControllersOffset, SeekOrigin.Begin);
+                MXMD.ModelStruct.MorphControls = new Structs.MXMDMorphControls
+                {
+                    TableOffset = brWIMDO.ReadInt32(),
+                    Count = brWIMDO.ReadInt32(),
+
+                    Unknown2 = brWIMDO.ReadBytes(0x10)
+                };
+
+                MXMD.ModelStruct.MorphControls.Controls = new Structs.MXMDMorphControl[MXMD.ModelStruct.MorphControls.Count];
+                long nextPosition = fsWIMDO.Position;
+                for (int i = 0; i < MXMD.ModelStruct.MorphControls.Count; i++)
+                {
+                    fsWIMDO.Seek(nextPosition, SeekOrigin.Begin);
+                    nextPosition += 0x1C;
+                    MXMD.ModelStruct.MorphControls.Controls[i] = new Structs.MXMDMorphControl
+                    {
+                        NameOffset1 = brWIMDO.ReadInt32(),
+                        NameOffset2 = brWIMDO.ReadInt32(), //the results of these should be identical
+                        Unknown1 = brWIMDO.ReadBytes(0x14)
+                    };
+
+                    fsWIMDO.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MorphControllersOffset + MXMD.ModelStruct.MorphControls.Controls[i].NameOffset1, SeekOrigin.Begin);
+                    MXMD.ModelStruct.MorphControls.Controls[i].Name = FormatTools.ReadNullTerminatedString(brWIMDO);
+                }
+            }
+
+            if (MXMD.ModelStruct.MorphNamesOffset != 0)
+            {
+                fsWIMDO.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MorphNamesOffset, SeekOrigin.Begin);
+                MXMD.ModelStruct.MorphNames = new Structs.MXMDMorphNames
+                {
+                    TableOffset = brWIMDO.ReadInt32(),
+                    Count = brWIMDO.ReadInt32(),
+
+                    Unknown2 = brWIMDO.ReadBytes(0x20)
+                };
+
+                MXMD.ModelStruct.MorphNames.Names = new Structs.MXMDMorphName[MXMD.ModelStruct.MorphNames.Count];
+                long nextPosition = fsWIMDO.Position;
+                for (int i = 0; i < MXMD.ModelStruct.MorphNames.Count; i++)
+                {
+                    fsWIMDO.Seek(nextPosition, SeekOrigin.Begin);
+                    nextPosition += 0x10;
+                    MXMD.ModelStruct.MorphNames.Names[i] = new Structs.MXMDMorphName
+                    {
+                        NameOffset = brWIMDO.ReadInt32(),
+                        Unknown1 = brWIMDO.ReadInt32(),
+                        Unknown2 = brWIMDO.ReadInt32(),
+                        Unknown3 = brWIMDO.ReadInt32(),
+                    };
+
+                    fsWIMDO.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MorphControllersOffset + MXMD.ModelStruct.MorphNames.Names[i].NameOffset, SeekOrigin.Begin);
+                    MXMD.ModelStruct.MorphNames.Names[i].Name = FormatTools.ReadNullTerminatedString(brWIMDO);
+                }
+            }
+
+            if (MXMD.ModelStruct.MeshesOffset != 0)
+            {
+                fsWIMDO.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MeshesOffset, SeekOrigin.Begin);
+                MXMD.ModelStruct.Meshes = new Structs.MXMDMeshes
+                {
+                    TableOffset = brWIMDO.ReadInt32(),
+                    TableCount = brWIMDO.ReadInt32(),
+                    Unknown1 = brWIMDO.ReadInt32(),
+
+                    BoundingBoxStart = new Vector3(brWIMDO.ReadSingle(), brWIMDO.ReadSingle(), brWIMDO.ReadSingle()),
+                    BoundingBoxEnd = new Vector3(brWIMDO.ReadSingle(), brWIMDO.ReadSingle(), brWIMDO.ReadSingle()),
+                    BoundingRadius = brWIMDO.ReadSingle()
+                };
+
+                fsWIMDO.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.Meshes.TableOffset, SeekOrigin.Begin);
+                MXMD.ModelStruct.Meshes.Meshes = new Structs.MXMDMesh[MXMD.ModelStruct.Meshes.TableCount];
+                for (int i = 0; i < MXMD.ModelStruct.Meshes.TableCount; i++)
+                {
+                    MXMD.ModelStruct.Meshes.Meshes[i] = new Structs.MXMDMesh
+                    {
+                        //ms says to add 1 to some of these, why?
+                        ID = brWIMDO.ReadInt32(), //0x134
+
+                        Descriptor = brWIMDO.ReadInt32(), //0x138
+
+                        VTBuffer = brWIMDO.ReadInt16(), //0x13C
+                        UVFaces = brWIMDO.ReadInt16(),
+
+                        Unknown1 = brWIMDO.ReadInt16(), //0x140
+                        MaterialID = brWIMDO.ReadInt16(),
+                        Unknown2 = brWIMDO.ReadBytes(0xC),
+                        Unknown3 = brWIMDO.ReadInt16(), //0x150
+
+                        LOD = brWIMDO.ReadInt16(), //0x152
+                        Unknown4 = brWIMDO.ReadInt32(), //0x154
+
+                        Unknown5 = brWIMDO.ReadBytes(0xC),
+                    };
+                }
+            }
+
+            if (MXMD.ModelStruct.NodesOffset != 0)
+            {
+                fsWIMDO.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.NodesOffset, SeekOrigin.Begin);
+                MXMD.ModelStruct.Nodes = new Structs.MXMDNodes
+                {
+                    BoneCount = brWIMDO.ReadInt32(),
+                    BoneCount2 = brWIMDO.ReadInt32(),
+
+                    NodeIdsOffset = brWIMDO.ReadInt32(),
+                    NodeTmsOffset = brWIMDO.ReadInt32()
+                };
+
+                MXMD.ModelStruct.Nodes.Nodes = new Structs.MXMDNode[MXMD.ModelStruct.Nodes.BoneCount];
+
+                long nextPosition = MXMD.ModelStructOffset + MXMD.ModelStruct.NodesOffset + MXMD.ModelStruct.Nodes.NodeIdsOffset;
+                for (int i = 0; i < MXMD.ModelStruct.Nodes.BoneCount; i++)
+                {
+                    fsWIMDO.Seek(nextPosition, SeekOrigin.Begin);
+                    nextPosition += 0x18;
+                    MXMD.ModelStruct.Nodes.Nodes[i] = new Structs.MXMDNode
+                    {
+                        NameOffset = brWIMDO.ReadInt32(),
+                        Unknown1 = brWIMDO.ReadSingle(),
+                        Unknown2 = brWIMDO.ReadInt32(),
+
+                        ID = brWIMDO.ReadInt32(),
+                        Unknown3 = brWIMDO.ReadInt32(),
+                        Unknown4 = brWIMDO.ReadInt32()
+                    };
+
+                    fsWIMDO.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.NodesOffset + MXMD.ModelStruct.Nodes.Nodes[i].NameOffset, SeekOrigin.Begin);
+                    MXMD.ModelStruct.Nodes.Nodes[i].Name = FormatTools.ReadNullTerminatedString(brWIMDO);
+                }
+
+                nextPosition = MXMD.ModelStructOffset + MXMD.ModelStruct.NodesOffset + MXMD.ModelStruct.Nodes.NodeTmsOffset;
+                for (int i = 0; i < MXMD.ModelStruct.Nodes.BoneCount; i++)
+                {
+                    fsWIMDO.Seek(nextPosition, SeekOrigin.Begin);
+                    nextPosition += 0x10 * 4;
+
+                    //this is probably very incorrect
+                    MXMD.ModelStruct.Nodes.Nodes[i].Scale = new Quaternion(brWIMDO.ReadSingle(), brWIMDO.ReadSingle(), brWIMDO.ReadSingle(), brWIMDO.ReadSingle());
+                    MXMD.ModelStruct.Nodes.Nodes[i].Rotation = new Quaternion(brWIMDO.ReadSingle(), brWIMDO.ReadSingle(), brWIMDO.ReadSingle(), brWIMDO.ReadSingle());
+                    MXMD.ModelStruct.Nodes.Nodes[i].Position = new Quaternion(brWIMDO.ReadSingle(), brWIMDO.ReadSingle(), brWIMDO.ReadSingle(), brWIMDO.ReadSingle());
+
+                    MXMD.ModelStruct.Nodes.Nodes[i].ParentTransform = new Quaternion(brWIMDO.ReadSingle(), brWIMDO.ReadSingle(), brWIMDO.ReadSingle(), brWIMDO.ReadSingle());
+                }
+            }
+
+            /*string text = "MXMD Properties: ";
+            text += $"\n\tBone Count: {MXMD.ModelStruct.Nodes.BoneCount}";
+            text += $"\n\tBone Count 2: {MXMD.ModelStruct.Nodes.BoneCount2}";
+            text += "\n\tNodes: ";
+            foreach(var test in MXMD.ModelStruct.Nodes.Nodes)
+            {
+                text += $"\n\t\tName:             | {test.Name}";
+                text += $"\n\t\tID:               | {test.ID}";
+                text += $"\n\t\tParent Transform: | {test.ParentTransform}";
+                text += $"\n\t\tPosition:         | {test.Position}";
+                text += $"\n\t\tRotation:         | {test.Rotation}";
+                text += $"\n\t\tScale:            | {test.Scale}";
+                text += "\n";
+            }
+
+            Console.WriteLine(text);
+            Console.ReadLine();*/
+
+            return MXMD;
         }
 
         public void ModelToASCII(MemoryStream memoryStream, BinaryReader binaryReader, string[] args)
@@ -154,102 +462,43 @@ namespace XBC2ModelDecomp
             int[][] meshWeights = new int[meshCount][];
             int[] meshUVLayers = new int[meshCount];
 
-            bool WIMDOExists = false;
+            if (!File.Exists(Path.GetFileNameWithoutExtension(args[0]) + ".wimdo"))
+                return;
             bool ARCExists = false;
-            if (File.Exists(Path.GetFileNameWithoutExtension(args[0]) + ".wimdo"))
-                WIMDOExists = true;
             if (File.Exists(Path.GetFileNameWithoutExtension(args[0]) + ".arc"))
                 ARCExists = true;
 
-            //might be material data (and flexes?)
-            string[] meshFlexNames = new string[0];
-            int num30 = 0;
-            Dictionary<int, string> dictionary = new Dictionary<int, string>();
-            int[] array27 = new int[num30];
-            int[] array28 = new int[num30];
-            int[] array29 = new int[num30];
-            int[] meshVertexCount = new int[num30];
+            FileStream fsWIMDO = new FileStream(Path.GetFileNameWithoutExtension(args[0]) + ".wimdo", FileMode.Open, FileAccess.Read);
+            BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
 
-            if (WIMDOExists)
+            Structs.MXMD MXMD = ReadMXMD(fsWIMDO, brWIMDO);
+
+            //these will be deleted eventually once I get skeleton and mesh reading, considering they're redundant
+
+            string[] meshFlexNames = new string[MXMD.ModelStruct.MorphNames.Count];
+            for (int r = 0; r < MXMD.ModelStruct.MorphNames.Count; r++)
             {
-                FileStream fsWIMDO = new FileStream(Path.GetFileNameWithoutExtension(args[0]) + ".wimdo", FileMode.Open, FileAccess.Read);
-                BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
-                brWIMDO.ReadInt32(); //0x0
-                brWIMDO.ReadInt32(); //0x4
-                int ModelStructOffset = brWIMDO.ReadInt32(); //0x8
-                fsWIMDO.Seek(ModelStructOffset + 0x1C, SeekOrigin.Begin);
-                int num24 = brWIMDO.ReadInt32(); //0x6C
-                brWIMDO.ReadInt32(); //0x70
-                brWIMDO.ReadInt32(); //0x74
-                int num25 = brWIMDO.ReadInt32(); //0x78
-                fsWIMDO.Seek(0x54, SeekOrigin.Current);
-                int num26 = brWIMDO.ReadInt32(); //0xCC
-                meshFlexNames = null;
-                if (num26 > 0)
-                {
-                    fsWIMDO.Seek((long)(ModelStructOffset + num26), SeekOrigin.Begin);
-                    int num27 = brWIMDO.ReadInt32();
-                    int num28 = brWIMDO.ReadInt32();
-                    int[] array26 = new int[num28];
-                    meshFlexNames = new string[num28];
-                    for (i = 0; i < num28; i++)
-                    {
-                        fsWIMDO.Seek((long)(ModelStructOffset + num26 + num27 + i * 28), SeekOrigin.Begin);
-                        array26[i] = brWIMDO.ReadInt32();
-                    }
-                    for (i = 0; i < num28; i++)
-                    {
-                        fsWIMDO.Seek((long)(ModelStructOffset + num26 + array26[i]), SeekOrigin.Begin);
-                        meshFlexNames[i] = FormatTools.ReadNullTerminatedString(brWIMDO);
-                    }
-                }
-                fsWIMDO.Seek((long)(ModelStructOffset + num24), SeekOrigin.Begin);
-                int num29 = brWIMDO.ReadInt32();
-                num30 = brWIMDO.ReadInt32();
-                fsWIMDO.Seek((long)(ModelStructOffset + num29), SeekOrigin.Begin);
-                array27 = new int[num30];
-                array28 = new int[num30];
-                array29 = new int[num30];
-                meshVertexCount = new int[num30];
-                for (i = 0; i < num30; i++)
-                {
-                    brWIMDO.ReadByte();
-                    brWIMDO.ReadByte();
-                    brWIMDO.ReadByte();
-                    array29[i] = (int)brWIMDO.ReadByte();
-                    brWIMDO.ReadInt32();
-                    array28[i] = (int)brWIMDO.ReadInt16();
-                    array27[i] = (int)brWIMDO.ReadInt16();
-                    brWIMDO.ReadInt16();
-                    brWIMDO.ReadInt32();
-                    brWIMDO.ReadInt32();
-                    brWIMDO.ReadInt32();
-                    brWIMDO.ReadInt32();
-                    meshVertexCount[i] = (int)brWIMDO.ReadInt16();
-                    brWIMDO.ReadInt32();
-                    brWIMDO.ReadInt32();
-                    brWIMDO.ReadInt32();
-                    brWIMDO.ReadInt32();
-                }
+                meshFlexNames[r] = MXMD.ModelStruct.MorphNames.Names[r].Name;
+            }
 
-                fsWIMDO.Seek((long)(ModelStructOffset + num25), SeekOrigin.Begin);
-                int num31 = brWIMDO.ReadInt32();
-                brWIMDO.ReadInt32();
-                int num32 = brWIMDO.ReadInt32();
-                fsWIMDO.Seek((long)(ModelStructOffset + num25 + num32), SeekOrigin.Begin);
-                int[] array31 = new int[num31];
-                for (i = 0; i < num31; i++)
-                {
-                    array31[i] = ModelStructOffset + num25 + brWIMDO.ReadInt32();
-                    fsWIMDO.Seek(20L, SeekOrigin.Current);
-                }
-                dictionary = new Dictionary<int, string>();
-                for (i = 0; i < num31; i++)
-                {
-                    fsWIMDO.Seek((long)array31[i], SeekOrigin.Begin);
-                    string value = FormatTools.ReadNullTerminatedString(brWIMDO);
-                    dictionary.Add(i, value);
-                }
+            int MeshesTableCount = MXMD.ModelStruct.Meshes.TableCount;
+
+            Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
+            for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
+            {
+                NodesIdsNames.Add(MXMD.ModelStruct.Nodes.Nodes[r].ID, MXMD.ModelStruct.Nodes.Nodes[r].Name);
+            }
+
+            int[] MeshesUVFaces = new int[MXMD.ModelStruct.Meshes.TableCount];
+            int[] MeshesVertexBuffer = new int[MXMD.ModelStruct.Meshes.TableCount];
+            int[] array29 = new int[MXMD.ModelStruct.Meshes.TableCount];
+            int[] meshVertexCount = new int[MXMD.ModelStruct.Meshes.TableCount];
+            for (int r = 0; r < MXMD.ModelStruct.Meshes.TableCount; r++)
+            {
+                MeshesUVFaces[r] = MXMD.ModelStruct.Meshes.Meshes[r].UVFaces;
+                MeshesVertexBuffer[r] = MXMD.ModelStruct.Meshes.Meshes[r].VTBuffer;
+                array29[r] = BitConverter.GetBytes(MXMD.ModelStruct.Meshes.Meshes[r].ID).Last(); //still not sure what this is for
+                meshVertexCount[r] = MXMD.ModelStruct.Meshes.Meshes[r].LOD;
             }
 
             int boneCount = 0;
@@ -488,13 +737,13 @@ namespace XBC2ModelDecomp
                         try
                         {
                             int key = (int)binaryReader.ReadByte();
-                            meshWeightIds[j, 0] = dictionary2[dictionary[key]];
+                            meshWeightIds[j, 0] = dictionary2[NodesIdsNames[key]];
                             key = (int)binaryReader.ReadByte();
-                            meshWeightIds[j, 1] = dictionary2[dictionary[key]];
+                            meshWeightIds[j, 1] = dictionary2[NodesIdsNames[key]];
                             key = (int)binaryReader.ReadByte();
-                            meshWeightIds[j, 2] = dictionary2[dictionary[key]];
+                            meshWeightIds[j, 2] = dictionary2[NodesIdsNames[key]];
                             key = (int)binaryReader.ReadByte();
-                            meshWeightIds[j, 3] = dictionary2[dictionary[key]];
+                            meshWeightIds[j, 3] = dictionary2[NodesIdsNames[key]];
                         }
                         catch
                         {
@@ -542,7 +791,7 @@ namespace XBC2ModelDecomp
 
             //total mesh count
             int flexAndMeshCount = 0;
-            for (i = 0; i < num30; i++)
+            for (i = 0; i < MeshesTableCount; i++)
             {
                 if (meshVertexCount[i] < 2)
                 {
@@ -584,12 +833,12 @@ namespace XBC2ModelDecomp
                         }
                     }
                 }
-                for (i = 0; i < num30; i++)
+                for (i = 0; i < MeshesTableCount; i++)
                 {
                     if (meshVertexCount[i] <= 1)
                     {
-                        int curMesh = array27[i];
-                        int curMeshIndex = array28[i];
+                        int curMesh = MeshesUVFaces[i];
+                        int curMeshIndex = MeshesVertexBuffer[i];
                         if (array29[i] != 0 || flexIndex <= 0)
                         {
                             memoryStream.Seek((long)meshesDataStart[curMesh], SeekOrigin.Begin);
@@ -611,7 +860,7 @@ namespace XBC2ModelDecomp
                             }
                             if (flexIndex > 0)
                             {
-                                asciiWriter.WriteLine($"sm_{i}_{meshFlexNames[flexIndex - 1]}"); //mesh name (+ flex name)
+                                asciiWriter.WriteLine($"sm_{i}_{MXMD.ModelStruct.MorphNames.Names[flexIndex - 1].Name}"); //mesh name (+ flex name)
                             }
                             else
                             {
@@ -687,6 +936,8 @@ namespace XBC2ModelDecomp
 
         public void ReadTextures(FileStream fsWISMT, BinaryReader brWISMT, Structs.MSRD MSRD, string texturesFolderPath)
         {
+            if (fsWISMT == null || brWISMT == null)
+                return;
             MemoryStream msCurFile = XBC1(fsWISMT, brWISMT, MSRD.TOC[1].Offset);
             BinaryReader brCurFile = new BinaryReader(msCurFile);
             int[] array44 = new int[MSRD.TextureIdsCount];
