@@ -16,10 +16,10 @@ namespace XBC2ModelDecomp
         {
             List<int> magicOccurences = new List<int>();
 
-            FileStream fileStream = new FileStream(Path.GetFileNameWithoutExtension(path) + ".wismda", FileMode.Open, FileAccess.Read);
+            FileStream fileStream = new FileStream($@"{new FileInfo(path).DirectoryName}\{Path.GetFileNameWithoutExtension(path) + ".wismda"}", FileMode.Open, FileAccess.Read);
             BinaryReader binaryReader = new BinaryReader(fileStream);
 
-            byte[] ByteBuffer = File.ReadAllBytes(Path.GetFileNameWithoutExtension(path) + ".wismda");
+            byte[] ByteBuffer = File.ReadAllBytes($@"{new FileInfo(path).DirectoryName}\{Path.GetFileNameWithoutExtension(path) + ".wismda"}");
             byte[] SearchBytes = Encoding.ASCII.GetBytes("xbc1");
             for (int i = 0; i <= (ByteBuffer.Length - SearchBytes.Length); i++)
             {
