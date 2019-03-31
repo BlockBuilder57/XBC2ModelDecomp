@@ -3,4 +3,4 @@ A reformatted fork of a [project created by daemon1](https://forum.xentax.com/vi
 ## Compiling
 Other than the zlib library, everything should be stock System packages.
 ## Running
-I've made a [short tutorial](https://youtu.be/CaulBUh5e5c) on how to run it but it should honestly be easy to figure out. It's a form application, so you have graphics and everything. It also fits on 600x800 monitors if you're insane enough to try it!'
+I've made a [short tutorial](https://youtu.be/CaulBUh5e5c) on how to run it but it should honestly be easy to figure out. It's a form application, so you have graphics and everything. It also fits on 600x800 monitors if you're insane enough to try it!

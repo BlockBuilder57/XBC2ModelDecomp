@@ -12,14 +12,14 @@ namespace XBC2ModelDecomp
     {
         FormatTools ft = new FormatTools();
 
-        public MapTools(string path)
+        public MapTools()
         {
             List<int> magicOccurences = new List<int>();
 
-            FileStream fileStream = new FileStream($@"{new FileInfo(path).DirectoryName}\{Path.GetFileNameWithoutExtension(path) + ".wismda"}", FileMode.Open, FileAccess.Read);
+            FileStream fileStream = new FileStream(App.CurFileName.Remove(App.CurFileName.LastIndexOf('.')) + ".wismda", FileMode.Open, FileAccess.Read);
             BinaryReader binaryReader = new BinaryReader(fileStream);
 
-            byte[] ByteBuffer = File.ReadAllBytes($@"{new FileInfo(path).DirectoryName}\{Path.GetFileNameWithoutExtension(path) + ".wismda"}");
+            byte[] ByteBuffer = File.ReadAllBytes(App.CurFileName.Remove(App.CurFileName.LastIndexOf('.')) + ".wismda");
             byte[] SearchBytes = Encoding.ASCII.GetBytes("xbc1");
             for (int i = 0; i <= (ByteBuffer.Length - SearchBytes.Length); i++)
             {
@@ -39,7 +39,7 @@ namespace XBC2ModelDecomp
 
             for (int i = 0; i < magicOccurences.Count; i++)
             {
-                MemoryStream ms = ft.XBC1(fileStream, binaryReader, magicOccurences[i], $"{Path.GetFileNameWithoutExtension(path)}_file{i}.bin", $"{Path.GetFileNameWithoutExtension(path)}_files");
+                MemoryStream ms = ft.XBC1(fileStream, binaryReader, magicOccurences[i], $"{Path.GetFileNameWithoutExtension(App.CurFileName)}_file{i}.bin", App.CurOutputPath + $"{Path.GetFileNameWithoutExtension(App.CurFileName)}_xbc1files");
                 ms.Dispose();
             }
         }

@@ -13,17 +13,17 @@ namespace XBC2ModelDecomp
     {
         FormatTools ft = new FormatTools();
 
-        public ModelTools(string path)
+        public ModelTools()
         {
-            App.PushLog($"Reading {Path.GetFileName(path)}...");
+            App.PushLog($"Reading {Path.GetFileName(App.CurFileName)}...");
 
             //wismt
-            FileStream fsWISMT = new FileStream($@"{new FileInfo(path).DirectoryName}\{Path.GetFileNameWithoutExtension(path) + ".wismt"}", FileMode.Open, FileAccess.Read);
+            FileStream fsWISMT = new FileStream(App.CurFileName.Remove(App.CurFileName.LastIndexOf('.')) + ".wismt", FileMode.Open, FileAccess.Read);
             BinaryReader brWISMT = new BinaryReader(fsWISMT);
 
             Structs.MSRD MSRD = ft.ReadMSRD(fsWISMT, brWISMT);
 
-            string texturesFolderPath = App.OutputPath + @"\Textures";
+            string texturesFolderPath = App.CurOutputPath + $@"\{Path.GetFileNameWithoutExtension(App.CurFileName)}_textures";
             if (!Directory.Exists(texturesFolderPath))
                 Directory.CreateDirectory(texturesFolderPath);
             ft.ReadTextures(fsWISMT, brWISMT, MSRD, texturesFolderPath);
@@ -32,10 +32,8 @@ namespace XBC2ModelDecomp
             if (MSRD.TOC.Length > 0)
             {
                 BinaryReader brCurFile = new BinaryReader(MSRD.TOC[0].MemoryStream); //start new file
-                ft.ModelToASCII(MSRD.TOC[0].MemoryStream, brCurFile, path);
+                ft.ModelToASCII(MSRD.TOC[0].MemoryStream, brCurFile, App.CurFileName);
             }
         }
-
-        
     }
 }

@@ -6,6 +6,7 @@ using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Threading;
 
 namespace XBC2ModelDecomp
 {
@@ -15,17 +16,25 @@ namespace XBC2ModelDecomp
     public partial class App : Application
     {
         public static string[] FileNames;
-        public static string OutputPath;
+        public static string[] OutputPaths;
+        public static int FileIndex;
+
+        public static string CurFileName { get { return FileNames[FileIndex]; } }
+        public static string CurOutputPath { get { return OutputPaths[FileIndex]; } }
+
         public static bool SaveAllFiles;
         public static bool ExportFlexes;
 
-        public delegate void Log(string logMessage);
+        public delegate void Log(object logMessage);
         public static event Log LogEvent;
 
-        public static void PushLog(string logMessage)
+        public static void PushLog(object logMessage)
         {
-            Console.WriteLine(logMessage);
-            LogEvent?.Invoke(logMessage);
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Console.WriteLine(logMessage.ToString());
+                LogEvent?.Invoke(logMessage.ToString());
+            });
         }
 
         [STAThread]

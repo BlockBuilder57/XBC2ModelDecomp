@@ -5,6 +5,8 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Threading;
 using zlib;
 
 namespace XBC2ModelDecomp
@@ -87,7 +89,7 @@ namespace XBC2ModelDecomp
                 Path = ReadNullTerminatedString(brSAR1)
             };
 
-            string safePath = SAR1.Path[1] == ':' ? App.OutputPath + '\\' + SAR1.Path.Substring(3) : App.OutputPath + '\\' + SAR1.Path;
+            string safePath = SAR1.Path[1] == ':' ? $@"{App.CurOutputPath}\{Path.GetFileNameWithoutExtension(App.CurFileName)}_{SAR1.Path.Substring(3)}" : $@"{App.CurOutputPath}\{Path.GetFileNameWithoutExtension(App.CurFileName)}_{SAR1.Path}";
 
             if (App.SaveAllFiles && !Directory.Exists(safePath))
                 Directory.CreateDirectory(safePath);
@@ -234,7 +236,7 @@ namespace XBC2ModelDecomp
                     MSRD.TOC[curFileOffset].Offset = brMSRD.ReadInt32();
 
                     App.PushLog($"Decompressing file{curFileOffset} in MSRD...");
-                    MSRD.TOC[curFileOffset].MemoryStream = XBC1(fsMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.OutputPath + @"\RawFiles");
+                    MSRD.TOC[curFileOffset].MemoryStream = XBC1(fsMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.CurOutputPath + $@"\{Path.GetFileNameWithoutExtension(App.CurFileName)}_RawFiles");
                 }
             }
 
@@ -540,13 +542,13 @@ namespace XBC2ModelDecomp
             int[][] meshWeights = new int[meshCount][];
             int[] meshUVLayers = new int[meshCount];
 
-            if (!File.Exists($@"{new FileInfo(filepath).DirectoryName}\{Path.GetFileNameWithoutExtension(filepath) + ".wimdo"}"))
+            if (!File.Exists(App.CurFileName.Remove(App.CurFileName.LastIndexOf('.')) + ".wimdo"))
                 return;
             bool ARCExists = false;
-            if (File.Exists($@"{new FileInfo(filepath).DirectoryName}\{Path.GetFileNameWithoutExtension(filepath) + ".arc"}"))
+            if (File.Exists(App.CurFileName.Remove(App.CurFileName.LastIndexOf('.')) + ".arc"))
                 ARCExists = true;
 
-            FileStream fsWIMDO = new FileStream($@"{new FileInfo(filepath).DirectoryName}\{Path.GetFileNameWithoutExtension(filepath) + ".wimdo"}", FileMode.Open, FileAccess.Read);
+            FileStream fsWIMDO = new FileStream(App.CurFileName.Remove(App.CurFileName.LastIndexOf('.')) + ".wimdo", FileMode.Open, FileAccess.Read);
             BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
 
             Structs.MXMD MXMD = ReadMXMD(fsWIMDO, brWIMDO);
@@ -592,7 +594,7 @@ namespace XBC2ModelDecomp
 
             if (ARCExists)
             {
-                FileStream fsARC = new FileStream($@"{new FileInfo(filepath).DirectoryName}\{Path.GetFileNameWithoutExtension(filepath) + ".arc"}", FileMode.Open, FileAccess.Read);
+                FileStream fsARC = new FileStream(App.CurFileName.Remove(App.CurFileName.LastIndexOf('.')) + ".arc", FileMode.Open, FileAccess.Read);
                 BinaryReader brARC = new BinaryReader(fsARC);
 
                 ReadSAR1(fsARC, brARC);
@@ -699,7 +701,7 @@ namespace XBC2ModelDecomp
 
             //begin ascii
             //bone time
-            StreamWriter asciiWriter = new StreamWriter($@"{App.OutputPath}\{Path.GetFileNameWithoutExtension(filepath) + ".ascii"}");
+            StreamWriter asciiWriter = new StreamWriter($@"{App.CurOutputPath}\{Path.GetFileNameWithoutExtension(filepath) + ".ascii"}");
             App.PushLog("Writing .ascii file...");
             asciiWriter.WriteLine(boneCount);
             for (int j = 0; j < boneCount; j++)
@@ -1019,6 +1021,8 @@ namespace XBC2ModelDecomp
             asciiWriter.Flush();
             asciiWriter.Close();
 
+            App.PushLog($"Finished {Path.GetFileName(App.CurFileName)}!\n");
+
             memoryStream.Close();
             binaryReader.Close();
             GC.Collect();
@@ -1109,7 +1113,7 @@ namespace XBC2ModelDecomp
                 FileStream fileStream4;
                 if (array46[i] == 37)
                 {
-                    fileStream4 = new FileStream($"{texturesFolderPath}\\{i.ToString("d2")}_{MSRD.TextureNames[MSRD.TextureIds[i]]}.tga", FileMode.Create);
+                    fileStream4 = new FileStream($@"{texturesFolderPath}\{i.ToString("d2")}_{MSRD.TextureNames[MSRD.TextureIds[i]]}.tga", FileMode.Create);
                     BinaryWriter binaryWriter = new BinaryWriter(fileStream4);
                     binaryWriter.Write(131072);
                     binaryWriter.Write(0);
@@ -1123,7 +1127,7 @@ namespace XBC2ModelDecomp
                 }
                 else
                 {
-                    fileStream4 = new FileStream($"{texturesFolderPath}\\{i.ToString("d2")}_{MSRD.TextureNames[MSRD.TextureIds[i]]}.dds", FileMode.Create);
+                    fileStream4 = new FileStream($@"{texturesFolderPath}\{i.ToString("d2")}_{MSRD.TextureNames[MSRD.TextureIds[i]]}.dds", FileMode.Create);
                     BinaryWriter binaryWriter = new BinaryWriter(fileStream4);
                     binaryWriter.Write(0x7C20534444); //DDS | (backwards)
                     binaryWriter.Write(0x1007); //some shit

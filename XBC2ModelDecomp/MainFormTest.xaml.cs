@@ -13,6 +13,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
+using System.Threading;
 
 namespace XBC2ModelDecomp
 {
@@ -38,30 +39,28 @@ namespace XBC2ModelDecomp
             txtConsole.Text = Quotes[new Random().Next(0, Quotes.Length - 1)];
         }
 
-        private void LogEvent(string message)
+        private void LogEvent(object message)
         {
-            txtConsole.AppendText('\n' + message);
-            txtConsole.ScrollToEnd();
+            Dispatcher.Invoke(() =>
+            {
+                txtConsole.AppendText(string.IsNullOrWhiteSpace(txtConsole.Text) ? message.ToString() : '\n' + message.ToString());
+                txtConsole.ScrollToEnd();
+            });
         }
-
-        public string[] FileNames;
 
         private void SelectFile(object sender, RoutedEventArgs e)
         {
             OpenFileDialog ofd = new OpenFileDialog { Filter = "Model Files|*.wimdo|Map Files|*.wismda", Multiselect = true };
-            if (!string.IsNullOrWhiteSpace(txtInput.Text))
-            {
-                string DirectoryPath = new FileInfo(txtInput.Text).DirectoryName;
-                if (File.Exists(DirectoryPath))
-                    ofd.InitialDirectory = DirectoryPath;
-            }
             if (ofd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                FileNames = ofd.FileNames;
                 App.FileNames = ofd.FileNames;
-                App.OutputPath = new FileInfo(ofd.FileNames[0]).DirectoryName + $@"\{Path.GetFileNameWithoutExtension(ofd.FileNames[0])}";
-                txtOutput.Text = App.OutputPath;
-                txtInput.Text = string.Join(", ", ofd.FileNames);
+                App.OutputPaths = new string[App.FileNames.Length];
+                for (int i = 0; i < App.FileNames.Length; i++)
+                    App.OutputPaths[i] = App.FileNames[i].Remove(App.FileNames[i].LastIndexOf('.'));
+
+                txtOutput.Text = string.Join(", ", App.OutputPaths);
+                txtInput.Text = string.Join(", ", App.FileNames);
+
                 txtOutput.CaretIndex = txtOutput.Text.Length;
                 txtOutput.ScrollToHorizontalOffset(txtOutput.GetRectFromCharacterIndex(txtOutput.CaretIndex).Right);
                 txtInput.CaretIndex = txtInput.Text.Length;
@@ -71,34 +70,51 @@ namespace XBC2ModelDecomp
 
         private void SelectOutputDir(object sender, RoutedEventArgs e)
         {
-            FolderBrowserDialog fbd = new FolderBrowserDialog();
+            FolderBrowserDialog fbd = new FolderBrowserDialog
+            {
+                Description = @"Select the path to drop every file into. Each file will have its own name with its own folder for its files. (e.g. [output]\pc000101_Textures)"
+            };
+            if (App.OutputPaths != null)
+                fbd.SelectedPath = App.OutputPaths[0].Remove(App.OutputPaths[0].LastIndexOf('\\'));
             if (fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                App.OutputPath = fbd.SelectedPath + $@"\{Path.GetFileNameWithoutExtension(App.FileNames[0])}";
-                txtOutput.Text = App.OutputPath;
+                for (int i = 0; i < App.OutputPaths.Length; i++)
+                    App.OutputPaths[i] = fbd.SelectedPath;
+                txtOutput.Text = fbd.SelectedPath;
             }
         }
 
         private void DecompileFile(object sender, RoutedEventArgs e)
         {
+            if (App.FileNames == null || App.FileNames.Length == 0)
+                return;
             App.SaveAllFiles = cbxAllFiles.IsChecked.Value;
             App.ExportFlexes = cbxFlexes.IsChecked.Value;
-            foreach (string file in FileNames)
+
+            txtConsole.Text = "";
+            App.PushLog($"Extracting {App.FileNames.Length} file(s)...\nThe program may appear to freeze, this takes some time.");
+
+            Thread taskThread = new Thread(() =>
             {
-                switch (Path.GetExtension(file))
+                for (int i = 0; i < App.FileNames.Length; i++)
                 {
-                    case ".wimdo":
-                    case ".wismt":
-                    case ".wiefp":
-                    case ".arc":
-                    case ".mot":
-                        new ModelTools(file);
-                        break;
-                    case ".wismda":
-                        new MapTools(file);
-                        break;
+                    App.FileIndex = i;
+                    switch (Path.GetExtension(App.FileNames[i]))
+                    {
+                        case ".wimdo":
+                        case ".wismt":
+                        case ".wiefp":
+                        case ".arc":
+                        case ".mot":
+                            new ModelTools();
+                            break;
+                        case ".wismda":
+                            new MapTools();
+                            break;
+                    }
                 }
-            }
+            });
+            taskThread.Start();
         }
     }
 }
