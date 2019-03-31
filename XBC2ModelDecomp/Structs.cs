@@ -233,26 +233,28 @@ namespace XBC2ModelDecomp
         }
 
 
-        //SAR1
+        //arc, mot
         public struct SAR1
         {
             public int FileSize;
             public int Version;
             public int NumFiles;
-            public int Offset;
+            public int TOCOffset;
             public int DataOffset;
             public int Unknown1;
             public int Unknown2;
+            public string Path; //0x80 chars
 
-            public SARFile[] Files;
+            public SARTOC[] TOCItems;
+            public SARBC[] BCItems;
         }
 
-        public struct SARFile
+        public struct SARTOC
         {
             public int Offset;
             public int Size;
             public int Unknown1;
-            public string Filename;
+            public string Filename; //0x34 chars
         }
 
         public struct SARBC
@@ -260,6 +262,15 @@ namespace XBC2ModelDecomp
             public int BlockCount;
             public int FileSize;
             public int PointerCount;
+            public int OffsetToData; //starts from blockcount, not magic
+
+            public MemoryStream Data;
+        }
+
+
+        //arc
+        public struct SKEL
+        {
 
         }
     }

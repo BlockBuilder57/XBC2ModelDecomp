@@ -13,17 +13,17 @@ namespace XBC2ModelDecomp
     {
         FormatTools ft = new FormatTools();
 
-        public ModelTools(string[] args)
+        public ModelTools(string path)
         {
-            
+            App.PushLog($"Reading {Path.GetFileName(path)}...");
 
             //wismt
-            FileStream fsWISMT = new FileStream(Path.GetFileNameWithoutExtension(args[0]) + ".wismt", FileMode.Open, FileAccess.Read);
+            FileStream fsWISMT = new FileStream($@"{new FileInfo(path).DirectoryName}\{Path.GetFileNameWithoutExtension(path) + ".wismt"}", FileMode.Open, FileAccess.Read);
             BinaryReader brWISMT = new BinaryReader(fsWISMT);
 
             Structs.MSRD MSRD = ft.ReadMSRD(fsWISMT, brWISMT);
 
-            string texturesFolderPath = Path.GetFileNameWithoutExtension(args[0]) + "_textures";
+            string texturesFolderPath = App.OutputPath + @"\Textures";
             if (!Directory.Exists(texturesFolderPath))
                 Directory.CreateDirectory(texturesFolderPath);
             ft.ReadTextures(fsWISMT, brWISMT, MSRD, texturesFolderPath);
@@ -32,7 +32,7 @@ namespace XBC2ModelDecomp
             if (MSRD.TOC.Length > 0)
             {
                 BinaryReader brCurFile = new BinaryReader(MSRD.TOC[0].MemoryStream); //start new file
-                ft.ModelToASCII(MSRD.TOC[0].MemoryStream, brCurFile, args);
+                ft.ModelToASCII(MSRD.TOC[0].MemoryStream, brCurFile, path);
             }
         }
 

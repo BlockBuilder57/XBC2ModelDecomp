@@ -12,14 +12,14 @@ namespace XBC2ModelDecomp
     {
         FormatTools ft = new FormatTools();
 
-        public MapTools(string[] args)
+        public MapTools(string path)
         {
             List<int> magicOccurences = new List<int>();
 
-            FileStream fileStream = new FileStream(Path.GetFileNameWithoutExtension(args[0]) + ".wismda", FileMode.Open, FileAccess.Read);
+            FileStream fileStream = new FileStream(Path.GetFileNameWithoutExtension(path) + ".wismda", FileMode.Open, FileAccess.Read);
             BinaryReader binaryReader = new BinaryReader(fileStream);
 
-            byte[] ByteBuffer = File.ReadAllBytes(Path.GetFileNameWithoutExtension(args[0]) + ".wismda");
+            byte[] ByteBuffer = File.ReadAllBytes(Path.GetFileNameWithoutExtension(path) + ".wismda");
             byte[] SearchBytes = Encoding.ASCII.GetBytes("xbc1");
             for (int i = 0; i <= (ByteBuffer.Length - SearchBytes.Length); i++)
             {
@@ -39,7 +39,7 @@ namespace XBC2ModelDecomp
 
             for (int i = 0; i < magicOccurences.Count; i++)
             {
-                MemoryStream ms = ft.XBC1(fileStream, binaryReader, magicOccurences[i], $"{Path.GetFileNameWithoutExtension(args[0])}_file{i}.bin", $"{Path.GetFileNameWithoutExtension(args[0])}_files");
+                MemoryStream ms = ft.XBC1(fileStream, binaryReader, magicOccurences[i], $"{Path.GetFileNameWithoutExtension(path)}_file{i}.bin", $"{Path.GetFileNameWithoutExtension(path)}_files");
                 ms.Dispose();
             }
         }
