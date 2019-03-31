@@ -79,7 +79,7 @@ namespace XBC2ModelDecomp
             if (fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 for (int i = 0; i < App.OutputPaths.Length; i++)
-                    App.OutputPaths[i] = fbd.SelectedPath;
+                    App.OutputPaths[i] = fbd.SelectedPath + $@"\{Path.GetFileNameWithoutExtension(App.FileNames[i])}";
                 txtOutput.Text = fbd.SelectedPath;
             }
         }

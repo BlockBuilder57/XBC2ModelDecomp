@@ -23,16 +23,28 @@ namespace XBC2ModelDecomp
 
             Structs.MSRD MSRD = ft.ReadMSRD(fsWISMT, brWISMT);
 
-            string texturesFolderPath = App.CurOutputPath + $@"\{Path.GetFileNameWithoutExtension(App.CurFileName)}_textures";
-            if (!Directory.Exists(texturesFolderPath))
-                Directory.CreateDirectory(texturesFolderPath);
-            ft.ReadTextures(fsWISMT, brWISMT, MSRD, texturesFolderPath);
-
             //start mesh file
             if (MSRD.TOC.Length > 0)
             {
+                if (!Directory.Exists(App.CurOutputPath))
+                    Directory.CreateDirectory(App.CurOutputPath);
+
+                if (MSRD.TOC.Length > 1)
+                {
+                    string texturesFolderPath = App.CurOutputPath + $@"\{Path.GetFileNameWithoutExtension(App.CurFileName)}_textures";
+                    if (!Directory.Exists(texturesFolderPath))
+                        Directory.CreateDirectory(texturesFolderPath);
+                    ft.ReadTextures(fsWISMT, brWISMT, MSRD, texturesFolderPath);
+                }
+
                 BinaryReader brCurFile = new BinaryReader(MSRD.TOC[0].MemoryStream); //start new file
                 ft.ModelToASCII(MSRD.TOC[0].MemoryStream, brCurFile, App.CurFileName);
+
+                App.PushLog($"Finished {Path.GetFileName(App.CurFileName)}!\n");
+            }
+            else
+            {
+                App.PushLog($"No files found in {Path.GetFileName(App.CurFileName)}?\n");
             }
         }
     }
