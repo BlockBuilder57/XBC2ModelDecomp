@@ -32,7 +32,7 @@ namespace XBC2ModelDecomp
             int XBC1Magic = binaryReader.ReadInt32(); //nice meme
             if (XBC1Magic != 0x31636278)
             {
-                Console.WriteLine("xbc1 header invalid!");
+                App.PushLog("XBC1 header invalid!");
                 return null;
             }
             binaryReader.ReadInt32();
@@ -73,7 +73,7 @@ namespace XBC2ModelDecomp
             int SAR1Magic = brSAR1.ReadInt32();
             if (SAR1Magic != 0x53415231)
             {
-                Console.WriteLine("sar is corrupt (or wrong endianness)!");
+                App.PushLog("SAR1 is corrupt (or wrong endianness)!");
                 return new Structs.SAR1 { Version = Int32.MaxValue };
             }
 
@@ -89,7 +89,11 @@ namespace XBC2ModelDecomp
                 Path = ReadNullTerminatedString(brSAR1)
             };
 
-            string safePath = SAR1.Path[1] == ':' ? $@"{App.CurOutputPath}\{Path.GetFileNameWithoutExtension(App.CurFileName)}_{SAR1.Path.Substring(3)}" : $@"{App.CurOutputPath}\{Path.GetFileNameWithoutExtension(App.CurFileName)}_{SAR1.Path}";
+            string safePath = $@"{App.CurOutputPath}\{App.CurFileNameNoExt}_RawFiles\";
+            if (SAR1.Path[1] == ':')
+                safePath += SAR1.Path.Substring(3);
+            else
+                safePath += SAR1.Path;
 
             if (App.SaveAllFiles && !Directory.Exists(safePath))
                 Directory.CreateDirectory(safePath);
@@ -148,6 +152,70 @@ namespace XBC2ModelDecomp
             return SAR1;
         }
 
+        public Structs.SKEL ReadSKEL(Stream fsSKEL, BinaryReader brSKEL)
+        {
+            App.PushLog("Parsing SKEL...");
+            fsSKEL.Seek(0, SeekOrigin.Begin);
+            int SKELMagic = brSKEL.ReadInt32();
+            if (SKELMagic != 0x4C454B53)
+            {
+                App.PushLog("SKEL is corrupt (or wrong endianness)!");
+                return new Structs.SKEL { Parents = new short[0] };
+            }
+
+            Structs.SKEL SKEL = new Structs.SKEL
+            {
+                Unknown1 = brSKEL.ReadInt32(),
+                Unknown2 = brSKEL.ReadInt32()
+            };
+
+            SKEL.TOCItems = new Structs.SKELTOC[9];
+            for (int i = 0; i < SKEL.TOCItems.Length; i++)
+            {
+                SKEL.TOCItems[i] = new Structs.SKELTOC
+                {
+                    Offset = brSKEL.ReadInt32(),
+                    Unknown1 = brSKEL.ReadInt32(),
+                    Count = brSKEL.ReadInt32(),
+                    Unknown2 = brSKEL.ReadInt32()
+                };
+            }
+
+            SKEL.Parents = new short[SKEL.TOCItems[2].Count];
+            fsSKEL.Seek(SKEL.TOCItems[2].Offset - 0x24, SeekOrigin.Begin);
+            for (int i = 0; i < SKEL.Parents.Length; i++)
+            {
+                SKEL.Parents[i] = brSKEL.ReadInt16();
+            }
+
+            SKEL.Nodes = new Structs.SKELNodes[SKEL.TOCItems[3].Count];
+            for (int i = 0; i < SKEL.Nodes.Length; i++)
+            {
+                fsSKEL.Seek(SKEL.TOCItems[3].Offset - 0x24 + (i * 0x10), SeekOrigin.Begin);
+                SKEL.Nodes[i] = new Structs.SKELNodes
+                {
+                    Offset = brSKEL.ReadInt32(),
+                    Unknown1 = brSKEL.ReadBytes(0xC)
+                };
+                fsSKEL.Seek(SKEL.Nodes[i].Offset - 0x24, SeekOrigin.Begin);
+                SKEL.Nodes[i].Name = ReadNullTerminatedString(brSKEL);
+            }
+
+            SKEL.Transforms = new Structs.SKELTransforms[SKEL.TOCItems[4].Count];
+            fsSKEL.Seek(SKEL.TOCItems[4].Offset - 0x24, SeekOrigin.Begin);
+            for (int i = 0; i < SKEL.Transforms.Length; i++)
+            {
+                SKEL.Transforms[i] = new Structs.SKELTransforms
+                {
+                    Position = new Quaternion(brSKEL.ReadSingle(), brSKEL.ReadSingle(), brSKEL.ReadSingle(), brSKEL.ReadSingle()),
+                    Rotation = new Quaternion(brSKEL.ReadSingle(), brSKEL.ReadSingle(), brSKEL.ReadSingle(), brSKEL.ReadSingle()),
+                    Scale = new Quaternion(brSKEL.ReadSingle(), brSKEL.ReadSingle(), brSKEL.ReadSingle(), brSKEL.ReadSingle())
+                };
+            }
+
+            return SKEL;
+        }
+
         public Structs.MSRD ReadMSRD(FileStream fsMSRD, BinaryReader brMSRD)
         {
             App.PushLog("Parsing MSRD...");
@@ -155,7 +223,7 @@ namespace XBC2ModelDecomp
             int MSRDMagic = brMSRD.ReadInt32();
             if (MSRDMagic != 0x4D535244)
             {
-                Console.WriteLine("wismt is corrupt (or wrong endianness)!");
+                App.PushLog("MSRD is corrupt (or wrong endianness)!");
                 return new Structs.MSRD { Version = Int32.MaxValue };
             }
 
@@ -241,7 +309,7 @@ namespace XBC2ModelDecomp
                 MSRD.TOC[curFileOffset].Offset = brMSRD.ReadInt32();
 
                 App.PushLog($"Decompressing file{curFileOffset} in MSRD...");
-                MSRD.TOC[curFileOffset].MemoryStream = XBC1(fsMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.CurOutputPath + $@"\{Path.GetFileNameWithoutExtension(App.CurFileName)}_RawFiles");
+                MSRD.TOC[curFileOffset].MemoryStream = XBC1(fsMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.CurOutputPath + $@"\{App.CurFileNameNoExt}_RawFiles");
             }
 
             return MSRD;
@@ -254,7 +322,7 @@ namespace XBC2ModelDecomp
             int MXMDMagic = brMXMD.ReadInt32();
             if (MXMDMagic != 0x4D584D44)
             {
-                Console.WriteLine("wimdo is corrupt (or wrong endianness)!");
+                App.PushLog("MXMD is corrupt (or wrong endianness)!");
                 return new Structs.MXMD { Version = Int32.MaxValue };
             }
 
@@ -536,7 +604,7 @@ namespace XBC2ModelDecomp
             }
 
             memoryStream.Seek(meshExtraDataPointer + 0x8, SeekOrigin.Begin);
-            int meshWeightBoneCount = (int)binaryReader.ReadInt16(); //4
+            int meshWeightBoneCount = binaryReader.ReadInt16(); //4
             int[,] meshWeightIds = new int[meshesDataCount[meshWeightBoneCount], 4];
             float[,] meshWeightValues = new float[meshesDataCount[meshWeightBoneCount], 4];
             Vector3[][] meshVertices = new Vector3[meshCount][];
@@ -546,13 +614,13 @@ namespace XBC2ModelDecomp
             int[][] meshWeights = new int[meshCount][];
             int[] meshUVLayers = new int[meshCount];
 
-            if (!File.Exists(App.CurFileName.Remove(App.CurFileName.LastIndexOf('.')) + ".wimdo"))
+            if (!File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo"))
                 return;
             bool ARCExists = false;
-            if (File.Exists(App.CurFileName.Remove(App.CurFileName.LastIndexOf('.')) + ".arc"))
+            if (File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc"))
                 ARCExists = true;
 
-            FileStream fsWIMDO = new FileStream(App.CurFileName.Remove(App.CurFileName.LastIndexOf('.')) + ".wimdo", FileMode.Open, FileAccess.Read);
+            FileStream fsWIMDO = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo", FileMode.Open, FileAccess.Read);
             BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
 
             Structs.MXMD MXMD = ReadMXMD(fsWIMDO, brWIMDO);
@@ -593,45 +661,47 @@ namespace XBC2ModelDecomp
             Vector3[] bonePos = new Vector3[boneCount];
             Quaternion[] boneRot = new Quaternion[boneCount];
             int[] bone_parents = new int[boneCount];
-            Dictionary<string, int> dictionary2 = new Dictionary<string, int>();
+            Dictionary<string, int> SKELNodeNames = new Dictionary<string, int>();
             string[] bone_names = new string[boneCount];
 
             if (ARCExists)
             {
-                FileStream fsARC = new FileStream(App.CurFileName.Remove(App.CurFileName.LastIndexOf('.')) + ".arc", FileMode.Open, FileAccess.Read);
+                FileStream fsARC = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc", FileMode.Open, FileAccess.Read);
                 BinaryReader brARC = new BinaryReader(fsARC);
 
-                ReadSAR1(fsARC, brARC);
+                Structs.SAR1 SAR1 = ReadSAR1(fsARC, brARC);
+                BinaryReader brSKEL = new BinaryReader(SAR1.BCItems[0].Data);
+                Structs.SKEL SKEL = ReadSKEL(SAR1.BCItems[0].Data, brSKEL);
 
                 boneCount = 0;
-                int num34 = 0;
-                int num35 = 0;
-                int num36 = 0;
-                int num37 = 0;
-                fsARC.Seek(12L, SeekOrigin.Begin);
-                int num38 = brARC.ReadInt32();
-                fsARC.Seek((long)brARC.ReadInt32(), SeekOrigin.Begin);
-                int[] array32 = new int[num38];
-                for (i = 0; i < num38; i++)
+                int SKELTransformsOffset = 0;
+                int SKELLinksOffset = 0;
+                int SKELNodesOffset = 0;
+                int SKELAddress = 0;
+                fsARC.Seek(0xC, SeekOrigin.Begin);
+                int ARCNumFiles = brARC.ReadInt32();
+                fsARC.Seek(brARC.ReadInt32(), SeekOrigin.Begin); //seek to TOC
+                int[] ARCFileOffsets = new int[ARCNumFiles];
+                for (i = 0; i < ARCNumFiles; i++)
                 {
-                    array32[i] = brARC.ReadInt32();
-                    fsARC.Seek(60L, SeekOrigin.Current);
+                    ARCFileOffsets[i] = brARC.ReadInt32();
+                    fsARC.Seek(0x3C, SeekOrigin.Current);
                 }
-                for (i = 0; i < num38; i++)
+                for (i = 0; i < ARCNumFiles; i++)
                 {
-                    fsARC.Seek((long)(array32[i] + 36), SeekOrigin.Begin);
+                    fsARC.Seek(ARCFileOffsets[i] + 0x24, SeekOrigin.Begin);
                     int SKELMagic = brARC.ReadInt32();
                     if (SKELMagic == 0x4C454B53) //SKEL
                     {
-                        num37 = array32[i];
-                        fsARC.Seek((long)(array32[i] + 80), SeekOrigin.Begin);
-                        num35 = array32[i] + brARC.ReadInt32();
+                        SKELAddress = ARCFileOffsets[i];
+                        fsARC.Seek(ARCFileOffsets[i] + 0x50, SeekOrigin.Begin);
+                        SKELLinksOffset = ARCFileOffsets[i] + brARC.ReadInt32();
                         brARC.ReadInt32();
                         boneCount = brARC.ReadInt32();
-                        fsARC.Seek((long)(array32[i] + 96), SeekOrigin.Begin);
-                        num36 = array32[i] + brARC.ReadInt32();
-                        fsARC.Seek((long)(array32[i] + 112), SeekOrigin.Begin);
-                        num34 = array32[i] + brARC.ReadInt32();
+                        fsARC.Seek(ARCFileOffsets[i] + 0x60, SeekOrigin.Begin);
+                        SKELNodesOffset = ARCFileOffsets[i] + brARC.ReadInt32();
+                        fsARC.Seek(ARCFileOffsets[i] + 0x70, SeekOrigin.Begin);
+                        SKELTransformsOffset = ARCFileOffsets[i] + brARC.ReadInt32();
                     }
                 }
                 Vector3[] bonePosFile = new Vector3[boneCount];
@@ -639,25 +709,25 @@ namespace XBC2ModelDecomp
                 Quaternion[] boneRotFile = new Quaternion[boneCount];
                 boneRot = new Quaternion[boneCount];
                 bone_parents = new int[boneCount];
-                fsARC.Seek((long)num36, SeekOrigin.Begin);
-                int[] array38 = new int[boneCount];
+                fsARC.Seek(SKELNodesOffset, SeekOrigin.Begin);
+                int[] SKELNodeNamesOffset = new int[boneCount];
                 for (i = 0; i < boneCount; i++)
                 {
-                    array38[i] = num37 + brARC.ReadInt32();
+                    SKELNodeNamesOffset[i] = SKELAddress + brARC.ReadInt32();
                     brARC.ReadInt32();
                     brARC.ReadInt32();
                     brARC.ReadInt32();
                 }
-                dictionary2 = new Dictionary<string, int>();
+                SKELNodeNames = new Dictionary<string, int>();
                 bone_names = new string[boneCount];
                 for (i = 0; i < boneCount; i++)
                 {
-                    fsARC.Seek((long)array38[i], SeekOrigin.Begin);
+                    fsARC.Seek(SKELNodeNamesOffset[i], SeekOrigin.Begin);
                     string text = FormatTools.ReadNullTerminatedString(brARC);
-                    dictionary2.Add(text, i);
+                    SKELNodeNames.Add(text, i);
                     bone_names[i] = text;
                 }
-                fsARC.Seek((long)num34, SeekOrigin.Begin);
+                fsARC.Seek(SKELTransformsOffset, SeekOrigin.Begin);
                 for (i = 0; i < boneCount; i++)
                 {
                     float ARCReadX = brARC.ReadSingle();
@@ -676,7 +746,7 @@ namespace XBC2ModelDecomp
                     brARC.ReadSingle();
                     brARC.ReadSingle();
                 }
-                fsARC.Seek((long)num35, SeekOrigin.Begin);
+                fsARC.Seek(SKELLinksOffset, SeekOrigin.Begin);
                 for (int j = 0; j < boneCount; j++)
                 {
                     bone_parents[j] = (int)brARC.ReadInt16();
@@ -696,9 +766,6 @@ namespace XBC2ModelDecomp
                         Quaternion left = boneRot[curParentIndex] * right;
                         Quaternion Quaternion = left * new Quaternion(-boneRot[curParentIndex].X, -boneRot[curParentIndex].Y, -boneRot[curParentIndex].Z, boneRot[curParentIndex].W);
                         bonePos[i] = new Vector3(Quaternion.X, Quaternion.Y, Quaternion.Z);
-                        Vector3[] array40;
-                        IntPtr intPtr;
-                        (array40 = bonePos)[(int)(intPtr = (IntPtr)i)] = array40[(int)intPtr] + bonePos[curParentIndex];
                     }
                 }
             }
@@ -829,13 +896,13 @@ namespace XBC2ModelDecomp
                         try
                         {
                             int key = (int)binaryReader.ReadByte();
-                            meshWeightIds[j, 0] = dictionary2[NodesIdsNames[key]];
+                            meshWeightIds[j, 0] = SKELNodeNames[NodesIdsNames[key]];
                             key = (int)binaryReader.ReadByte();
-                            meshWeightIds[j, 1] = dictionary2[NodesIdsNames[key]];
+                            meshWeightIds[j, 1] = SKELNodeNames[NodesIdsNames[key]];
                             key = (int)binaryReader.ReadByte();
-                            meshWeightIds[j, 2] = dictionary2[NodesIdsNames[key]];
+                            meshWeightIds[j, 2] = SKELNodeNames[NodesIdsNames[key]];
                             key = (int)binaryReader.ReadByte();
-                            meshWeightIds[j, 3] = dictionary2[NodesIdsNames[key]];
+                            meshWeightIds[j, 3] = SKELNodeNames[NodesIdsNames[key]];
                         }
                         catch
                         {

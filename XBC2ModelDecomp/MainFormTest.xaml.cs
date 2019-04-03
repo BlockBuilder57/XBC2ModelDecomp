@@ -30,10 +30,10 @@ namespace XBC2ModelDecomp
             string[] Quotes =
             {
                 "Find me on GitHub!",
-                "Humongous hungolomghnonolougongus.",
-                "Do you wish to change it? The future?",
-                "Oops! That wasn't supposed to happen...",
-                "I like your attitude!",
+                "\"Humongous hungolomghnonolougongus.\"",
+                "\"Do you wish to change it? The future?\"",
+                "\"Oops! That wasn't supposed to happen...\"",
+                "\"I like your attitude!\"",
                 "Very Funny Quote Goes Here"
             };
             txtConsole.Text = Quotes[new Random().Next(0, Quotes.Length - 1)];
@@ -53,13 +53,13 @@ namespace XBC2ModelDecomp
             OpenFileDialog ofd = new OpenFileDialog { Filter = "Model Files|*.wimdo|Map Files|*.wismda", Multiselect = true };
             if (ofd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                App.FileNames = ofd.FileNames;
-                App.OutputPaths = new string[App.FileNames.Length];
-                for (int i = 0; i < App.FileNames.Length; i++)
-                    App.OutputPaths[i] = App.FileNames[i].Remove(App.FileNames[i].LastIndexOf('.'));
+                App.FilePaths = ofd.FileNames;
+                App.OutputPaths = new string[App.FilePaths.Length];
+                for (int i = 0; i < App.FilePaths.Length; i++)
+                    App.OutputPaths[i] = App.FilePaths[i].Remove(App.FilePaths[i].LastIndexOf('.'));
 
                 txtOutput.Text = string.Join(", ", App.OutputPaths);
-                txtInput.Text = string.Join(", ", App.FileNames);
+                txtInput.Text = string.Join(", ", App.FilePaths);
 
                 txtOutput.CaretIndex = txtOutput.Text.Length;
                 txtOutput.ScrollToHorizontalOffset(txtOutput.GetRectFromCharacterIndex(txtOutput.CaretIndex).Right);
@@ -79,27 +79,27 @@ namespace XBC2ModelDecomp
             if (fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 for (int i = 0; i < App.OutputPaths.Length; i++)
-                    App.OutputPaths[i] = fbd.SelectedPath + $@"\{Path.GetFileNameWithoutExtension(App.FileNames[i])}";
+                    App.OutputPaths[i] = fbd.SelectedPath + $@"\{Path.GetFileNameWithoutExtension(App.FilePaths[i])}";
                 txtOutput.Text = fbd.SelectedPath;
             }
         }
 
         private void DecompileFile(object sender, RoutedEventArgs e)
         {
-            if (App.FileNames == null || App.FileNames.Length == 0)
+            if (App.FilePaths == null || App.FilePaths.Length == 0)
                 return;
             App.SaveAllFiles = cbxAllFiles.IsChecked.Value;
             App.ExportFlexes = cbxFlexes.IsChecked.Value;
 
             txtConsole.Text = "";
-            App.PushLog($"Extracting {App.FileNames.Length} file(s)...\nThe program may appear to freeze, this takes some time.");
+            App.PushLog($"Extracting {App.FilePaths.Length} file(s)...\nThe program may appear to freeze, this takes some time.");
 
             Thread taskThread = new Thread(() =>
             {
-                for (int i = 0; i < App.FileNames.Length; i++)
+                for (int i = 0; i < App.FilePaths.Length; i++)
                 {
                     App.FileIndex = i;
-                    switch (Path.GetExtension(App.FileNames[i]))
+                    switch (Path.GetExtension(App.FilePaths[i]))
                     {
                         case ".wimdo":
                         case ".wismt":

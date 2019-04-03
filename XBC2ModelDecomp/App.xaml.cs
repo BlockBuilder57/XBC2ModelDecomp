@@ -15,11 +15,13 @@ namespace XBC2ModelDecomp
     /// </summary>
     public partial class App : Application
     {
-        public static string[] FileNames;
+        public static string[] FilePaths;
         public static string[] OutputPaths;
         public static int FileIndex;
 
-        public static string CurFileName { get { return FileNames[FileIndex]; } }
+        public static string CurFilePath { get { return FilePaths[FileIndex]; } }
+        public static string CurFileName { get { return Path.GetFileName(FilePaths[FileIndex]); } }
+        public static string CurFileNameNoExt { get { return Path.GetFileNameWithoutExtension(FilePaths[FileIndex]); } }
         public static string CurOutputPath { get { return OutputPaths[FileIndex]; } }
 
         public static bool SaveAllFiles;

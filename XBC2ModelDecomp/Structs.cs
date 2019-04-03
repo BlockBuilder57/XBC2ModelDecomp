@@ -271,7 +271,35 @@ namespace XBC2ModelDecomp
         //arc
         public struct SKEL
         {
+            public int Unknown1;
+            public int Unknown2;
 
+            public SKELTOC[] TOCItems;
+            public short[] Parents;
+            public SKELNodes[] Nodes;
+            public SKELTransforms[] Transforms;
+        }
+
+        public struct SKELTOC
+        {
+            public int Offset;
+            public int Unknown1;
+            public int Count;
+            public int Unknown2;
+        }
+
+        public struct SKELNodes
+        {
+            public int Offset;
+            public byte[] Unknown1; //0xC long
+            public string Name; //not in struct
+        }
+
+        public struct SKELTransforms
+        {
+            public Quaternion Position;
+            public Quaternion Rotation;
+            public Quaternion Scale;
         }
     }
 }
