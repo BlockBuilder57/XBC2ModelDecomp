@@ -616,9 +616,8 @@ namespace XBC2ModelDecomp
 
             if (!File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo"))
                 return;
-            bool ARCExists = false;
-            if (File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc"))
-                ARCExists = true;
+            if (!File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc"))
+                return;
 
             FileStream fsWIMDO = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo", FileMode.Open, FileAccess.Read);
             BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
@@ -657,116 +656,52 @@ namespace XBC2ModelDecomp
                 meshVertexCount[r] = MXMD.ModelStruct.Meshes.Meshes[r].LOD;
             }
 
-            int boneCount = 0;
+
+            FileStream fsARC = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc", FileMode.Open, FileAccess.Read);
+            BinaryReader brARC = new BinaryReader(fsARC);
+
+            Structs.SAR1 SAR1 = ReadSAR1(fsARC, brARC);
+            BinaryReader brSKEL = new BinaryReader(SAR1.BCItems[0].Data);
+            Structs.SKEL SKEL = ReadSKEL(SAR1.BCItems[0].Data, brSKEL);
+
+            int boneCount = SKEL.TOCItems[2].Count;
+
+            Vector3[] bonePosOrig = new Vector3[boneCount];
             Vector3[] bonePos = new Vector3[boneCount];
+            Quaternion[] boneRotOrig = new Quaternion[boneCount];
             Quaternion[] boneRot = new Quaternion[boneCount];
+
             int[] bone_parents = new int[boneCount];
-            Dictionary<string, int> SKELNodeNames = new Dictionary<string, int>();
             string[] bone_names = new string[boneCount];
+            Dictionary<string, int> SKELNodeNames = new Dictionary<string, int>();
 
-            if (ARCExists)
+            for (i = 0; i < boneCount; i++)
             {
-                FileStream fsARC = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc", FileMode.Open, FileAccess.Read);
-                BinaryReader brARC = new BinaryReader(fsARC);
+                Quaternion posQuat = SKEL.Transforms[i].Position;
+                bonePosOrig[i] = new Vector3(posQuat.X, posQuat.Y, posQuat.Z);
+                boneRotOrig[i] = SKEL.Transforms[i].Rotation;
 
-                Structs.SAR1 SAR1 = ReadSAR1(fsARC, brARC);
-                BinaryReader brSKEL = new BinaryReader(SAR1.BCItems[0].Data);
-                Structs.SKEL SKEL = ReadSKEL(SAR1.BCItems[0].Data, brSKEL);
+                bone_parents[i] = SKEL.Parents[i];
+                SKELNodeNames.Add(SKEL.Nodes[i].Name, i);
+                bone_names[i] = SKEL.Nodes[i].Name;
 
-                boneCount = 0;
-                int SKELTransformsOffset = 0;
-                int SKELLinksOffset = 0;
-                int SKELNodesOffset = 0;
-                int SKELAddress = 0;
-                fsARC.Seek(0xC, SeekOrigin.Begin);
-                int ARCNumFiles = brARC.ReadInt32();
-                fsARC.Seek(brARC.ReadInt32(), SeekOrigin.Begin); //seek to TOC
-                int[] ARCFileOffsets = new int[ARCNumFiles];
-                for (i = 0; i < ARCNumFiles; i++)
+                if (bone_parents[i] < 0) //is root
                 {
-                    ARCFileOffsets[i] = brARC.ReadInt32();
-                    fsARC.Seek(0x3C, SeekOrigin.Current);
+                    bonePos[i] = bonePosOrig[i];
+                    boneRot[i] = boneRotOrig[i];
                 }
-                for (i = 0; i < ARCNumFiles; i++)
+                else
                 {
-                    fsARC.Seek(ARCFileOffsets[i] + 0x24, SeekOrigin.Begin);
-                    int SKELMagic = brARC.ReadInt32();
-                    if (SKELMagic == 0x4C454B53) //SKEL
-                    {
-                        SKELAddress = ARCFileOffsets[i];
-                        fsARC.Seek(ARCFileOffsets[i] + 0x50, SeekOrigin.Begin);
-                        SKELLinksOffset = ARCFileOffsets[i] + brARC.ReadInt32();
-                        brARC.ReadInt32();
-                        boneCount = brARC.ReadInt32();
-                        fsARC.Seek(ARCFileOffsets[i] + 0x60, SeekOrigin.Begin);
-                        SKELNodesOffset = ARCFileOffsets[i] + brARC.ReadInt32();
-                        fsARC.Seek(ARCFileOffsets[i] + 0x70, SeekOrigin.Begin);
-                        SKELTransformsOffset = ARCFileOffsets[i] + brARC.ReadInt32();
-                    }
-                }
-                Vector3[] bonePosFile = new Vector3[boneCount];
-                bonePos = new Vector3[boneCount];
-                Quaternion[] boneRotFile = new Quaternion[boneCount];
-                boneRot = new Quaternion[boneCount];
-                bone_parents = new int[boneCount];
-                fsARC.Seek(SKELNodesOffset, SeekOrigin.Begin);
-                int[] SKELNodeNamesOffset = new int[boneCount];
-                for (i = 0; i < boneCount; i++)
-                {
-                    SKELNodeNamesOffset[i] = SKELAddress + brARC.ReadInt32();
-                    brARC.ReadInt32();
-                    brARC.ReadInt32();
-                    brARC.ReadInt32();
-                }
-                SKELNodeNames = new Dictionary<string, int>();
-                bone_names = new string[boneCount];
-                for (i = 0; i < boneCount; i++)
-                {
-                    fsARC.Seek(SKELNodeNamesOffset[i], SeekOrigin.Begin);
-                    string text = FormatTools.ReadNullTerminatedString(brARC);
-                    SKELNodeNames.Add(text, i);
-                    bone_names[i] = text;
-                }
-                fsARC.Seek(SKELTransformsOffset, SeekOrigin.Begin);
-                for (i = 0; i < boneCount; i++)
-                {
-                    float ARCReadX = brARC.ReadSingle();
-                    float ARCReadY = brARC.ReadSingle();
-                    float ARCReadZ = brARC.ReadSingle();
-                    float ARCReadR = brARC.ReadSingle();
-                    bonePosFile[i] = new Vector3(ARCReadX, ARCReadY, ARCReadZ);
-                    ARCReadX = brARC.ReadSingle();
-                    ARCReadY = brARC.ReadSingle();
-                    ARCReadZ = brARC.ReadSingle();
-                    ARCReadR = brARC.ReadSingle();
-                    boneRotFile[i] = new Quaternion(ARCReadX, ARCReadY, ARCReadZ, ARCReadR);
-                    bonePos[i] = new Vector3(ARCReadX, ARCReadY, ARCReadZ);
-                    brARC.ReadSingle();
-                    brARC.ReadSingle();
-                    brARC.ReadSingle();
-                    brARC.ReadSingle();
-                }
-                fsARC.Seek(SKELLinksOffset, SeekOrigin.Begin);
-                for (int j = 0; j < boneCount; j++)
-                {
-                    bone_parents[j] = (int)brARC.ReadInt16();
-                }
-                for (i = 0; i < boneCount; i++)
-                {
-                    if (bone_parents[i] < 0) //is root
-                    {
-                        bonePos[i] = bonePosFile[i];
-                        boneRot[i] = boneRotFile[i];
-                    }
-                    else
-                    {
-                        int curParentIndex = bone_parents[i];
-                        boneRot[i] = boneRot[curParentIndex] * boneRotFile[i];
-                        Quaternion right = new Quaternion(bonePosFile[i], 0f);
-                        Quaternion left = boneRot[curParentIndex] * right;
-                        Quaternion Quaternion = left * new Quaternion(-boneRot[curParentIndex].X, -boneRot[curParentIndex].Y, -boneRot[curParentIndex].Z, boneRot[curParentIndex].W);
-                        bonePos[i] = new Vector3(Quaternion.X, Quaternion.Y, Quaternion.Z);
-                    }
+                    int curParentIndex = bone_parents[i];
+                    //add rotation of parent
+                    boneRot[i] = boneRot[curParentIndex] * boneRotOrig[i];
+                    //make position a quaternion again (for math reasons)
+                    Quaternion bonePosQuat = new Quaternion(bonePosOrig[i], 0f);
+                    //multiply position and rotation (?)
+                    Quaternion bonePosRotQuat = boneRot[curParentIndex] * bonePosQuat;
+                    //do something or other i dunno
+                    Quaternion newPosition = bonePosRotQuat * new Quaternion(-boneRot[curParentIndex].X, -boneRot[curParentIndex].Y, -boneRot[curParentIndex].Z, boneRot[curParentIndex].W);
+                    bonePos[i] = new Vector3(newPosition.X, newPosition.Y, newPosition.Z);
                 }
             }
 
