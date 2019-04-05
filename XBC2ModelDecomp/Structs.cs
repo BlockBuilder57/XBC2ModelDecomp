@@ -247,6 +247,11 @@ namespace XBC2ModelDecomp
 
             public SARTOC[] TOCItems;
             public SARBC[] BCItems;
+
+            public SARBC ItemBySearch(string search)
+            {
+                return BCItems[Array.FindIndex(TOCItems, x => x.Filename.Contains(search))];
+            }
         }
 
         public struct SARTOC
