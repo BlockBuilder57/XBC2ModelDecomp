@@ -24,8 +24,9 @@ namespace XBC2ModelDecomp
         public static string CurFileNameNoExt { get { return Path.GetFileNameWithoutExtension(FilePaths[FileIndex]); } }
         public static string CurOutputPath { get { return OutputPaths[FileIndex]; } }
 
-        public static bool SaveAllFiles;
+        public static bool ExportTextures;
         public static bool ExportFlexes;
+        public static bool SaveAllFiles;
 
         public delegate void Log(object logMessage);
         public static event Log LogEvent;

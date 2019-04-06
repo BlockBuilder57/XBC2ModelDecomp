@@ -89,7 +89,7 @@ namespace XBC2ModelDecomp
                 Path = ReadNullTerminatedString(brSAR1)
             };
 
-            string safePath = $@"{App.CurOutputPath}\{App.CurFileNameNoExt}_RawFiles\";
+            string safePath = App.CurOutputPath + @"\RawFiles\";
             if (SAR1.Path[1] == ':')
                 safePath += SAR1.Path.Substring(3);
             else
@@ -120,8 +120,7 @@ namespace XBC2ModelDecomp
                 int BCMagic = brSAR1.ReadInt32();
                 if (BCMagic != 0x00004342)
                 {
-                    Console.WriteLine("bc is corrupt (or wrong endianness)!");
-                    Console.WriteLine($"fs position: {fsSAR1.Position.ToString("X8")}\nnextPosition: {nextPosition.ToString("X8")}");
+                    Console.WriteLine("BC is corrupt (or wrong endianness)!");
                     Console.ReadLine();
                     return new Structs.SAR1 { Version = Int32.MaxValue };
                 }
@@ -309,7 +308,7 @@ namespace XBC2ModelDecomp
                 MSRD.TOC[curFileOffset].Offset = brMSRD.ReadInt32();
 
                 App.PushLog($"Decompressing file{curFileOffset} in MSRD...");
-                MSRD.TOC[curFileOffset].MemoryStream = XBC1(fsMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.CurOutputPath + $@"\{App.CurFileNameNoExt}_RawFiles");
+                MSRD.TOC[curFileOffset].MemoryStream = XBC1(fsMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.CurOutputPath + @"\RawFiles");
             }
 
             return MSRD;
@@ -1059,89 +1058,88 @@ namespace XBC2ModelDecomp
             {
                 msCurFile = XBC1(fsWISMT, brWISMT, MSRD.TOC[i + 2].Offset);
                 brCurFile = new BinaryReader(msCurFile);
-                int num67 = 0;
+                int TextureType = 0;
                 switch(TextureTypeArray[i])
                 {
                     case 37:
-                        num67 = 28;
+                        TextureType = 28;
                         break;
                     case 66:
-                        num67 = 71;
+                        TextureType = 71;
                         break;
                     case 68:
-                        num67 = 77;
+                        TextureType = 77;
                         break;
                     case 73:
-                        num67 = 80;
+                        TextureType = 80;
                         break;
                     case 75:
-                        num67 = 83;
+                        TextureType = 83;
                         break;
-                }
-                if (num67 == 0)
-                {
-                    Console.WriteLine("unknown texture type " + TextureTypeArray[i]);
-                    return;
+                    case 0:
+                    default:
+                        Console.WriteLine("unknown texture type " + TextureTypeArray[i]);
+                        return;
                 }
 
-                int ImageHeight = TextureHeightArray[i] * 2;
-                int ImageWidth = TextureWidthArray[i] * 2;
-                int DDSFourCC = 0x30315844; //DX10
-                int num71 = BitsPerPixel[num67] * 2;
+                int ImageWidth = TextureHeightArray[i] * 2;
+                int ImageHeight = TextureWidthArray[i] * 2;
+                int TextureUnswizzleBufferSize = BitsPerPixel[TextureType] * 2;
                 int SwizzleSize = 4;
-                if (num67 == 71)
+
+                int DDSFourCC = 0x30315844; //DX10
+                switch (TextureType)
                 {
-                    DDSFourCC = 0x31545844; //DXT1 (main texture)
+                    case 71:
+                        DDSFourCC = 0x31545844;
+                        break;
+                    case 74:
+                        DDSFourCC = 0x33545844;
+                        break;
+                    case 77:
+                        DDSFourCC = 0x35545844;
+                        break;
+                    case 80:
+                        DDSFourCC = 0x31495441;
+                        break;
+                    case 83:
+                        DDSFourCC = 0x32495441;
+                        break;
                 }
-                if (num67 == 74)
-                {
-                    DDSFourCC = 0x33545844; //DXT3
-                }
-                if (num67 == 77)
-                {
-                    DDSFourCC = 0x35545844; //DXT5
-                }
-                if (num67 == 80)
-                {
-                    DDSFourCC = 0x31495441; //ATI1 (normal map)
-                }
-                if (num67 == 83)
-                {
-                    DDSFourCC = 0x32495441; //ATI2
-                }
-                FileStream fileStream4;
+
+                FileStream fsTexture;
                 if (TextureTypeArray[i] == 37)
                 {
-                    fileStream4 = new FileStream($@"{texturesFolderPath}\{i.ToString("d2")}_{MSRD.TextureNames[MSRD.TextureIds[i]]}.tga", FileMode.Create);
-                    BinaryWriter binaryWriter = new BinaryWriter(fileStream4);
-                    binaryWriter.Write(0x20000); //type stuff
-                    binaryWriter.Write(0x0); //color map info
-                    binaryWriter.Write(0x0); //origin position
-                    binaryWriter.Write((short)ImageHeight);
-                    binaryWriter.Write((short)ImageWidth);
-                    binaryWriter.Write(0x820); //pixel size and descriptor
-                    binaryWriter.Seek(0x12, SeekOrigin.Begin);
-                    num71 = BitsPerPixel[num67] / 8;
+                    fsTexture = new FileStream($@"{texturesFolderPath}\{i.ToString("d2")}_{MSRD.TextureNames[MSRD.TextureIds[i]]}.tga", FileMode.Create);
+                    BinaryWriter brTexture = new BinaryWriter(fsTexture);
+                    brTexture.Write(0x20000); //type stuff
+                    brTexture.Write(0x0); //color map info
+                    brTexture.Write(0x0); //origin position
+                    brTexture.Write((short)ImageWidth);
+                    brTexture.Write((short)ImageHeight);
+                    brTexture.Write(0x820); //pixel size and descriptor
+                    brTexture.Seek(0x12, SeekOrigin.Begin);
+                    TextureUnswizzleBufferSize = BitsPerPixel[TextureType] / 8;
                     SwizzleSize = 1;
                 }
                 else
                 {
-                    fileStream4 = new FileStream($@"{texturesFolderPath}\{i.ToString("d2")}_{MSRD.TextureNames[MSRD.TextureIds[i]]}.dds", FileMode.Create);
-                    BinaryWriter binaryWriter = new BinaryWriter(fileStream4);
+                    fsTexture = new FileStream($@"{texturesFolderPath}\{i.ToString("d2")}_{MSRD.TextureNames[MSRD.TextureIds[i]]}.dds", FileMode.Create);
+                    BinaryWriter binaryWriter = new BinaryWriter(fsTexture);
                     binaryWriter.Write(0x7C20534444); //magic
                     binaryWriter.Write(0x1007); //flags
-                    binaryWriter.Write(ImageWidth);
                     binaryWriter.Write(ImageHeight);
+                    binaryWriter.Write(ImageWidth);
                     binaryWriter.Write(msCurFile.Length);
                     binaryWriter.Write(0x1);
-                    fileStream4.Seek(0x2C, SeekOrigin.Current);
+                    fsTexture.Seek(0x2C, SeekOrigin.Current);
                     binaryWriter.Write(0x20);
                     binaryWriter.Write(0x4);
                     binaryWriter.Write(DDSFourCC);
-                    fileStream4.Seek(0x28, SeekOrigin.Current);
+                    fsTexture.Seek(0x28, SeekOrigin.Current);
                     if (DDSFourCC == 0x30315844) //DXT10 header
                     {
-                        binaryWriter.Write(num67);
+                        binaryWriter.Write(TextureType);
                         binaryWriter.Write(3); //resourceDimension
                         binaryWriter.Write(0); //miscFlag
                         binaryWriter.Write(1); //arraySize
@@ -1151,63 +1149,65 @@ namespace XBC2ModelDecomp
 
                 byte[] TextureUnswizzleBuffer = new byte[16];
                 byte[] TextureUnswizzled = new byte[msCurFile.Length];
-                int num73 = ImageWidth / SwizzleSize;
-                int num74 = ImageHeight / SwizzleSize;
-                int num75 = num73 / 8;
-                if (num75 > 16)
+
+                int ImageHeightInTiles = ImageHeight / SwizzleSize;
+                int ImageWidthInTiles = ImageWidth / SwizzleSize;
+
+                int ImageRowCount = ImageHeightInTiles / 8;
+                if (ImageRowCount > 16)
+                    ImageRowCount = 16;
+
+                int ImageColumnCount = 1;
+                switch (TextureUnswizzleBufferSize)
                 {
-                    num75 = 16;
+                    case 16:
+                        ImageColumnCount = 1;
+                        break;
+                    case 8:
+                        ImageColumnCount = 2;
+                        break;
+                    case 4:
+                        ImageColumnCount = 4;
+                        break;
                 }
-                int num76 = 1;
-                if (num71 == 16)
+
+                for (int HeightSection = 0; HeightSection < (ImageHeightInTiles / 8) / ImageRowCount; HeightSection++)
                 {
-                    num76 = 1;
-                }
-                if (num71 == 8)
-                {
-                    num76 = 2;
-                }
-                if (num71 == 4)
-                {
-                    num76 = 4;
-                }
-                for (int n = 0; n < num73 / 8 / num75; n++)
-                {
-                    for (int num77 = 0; num77 < num74 / 4 / num76; num77++)
+                    for (int WidthSection = 0; WidthSection < (ImageWidthInTiles / 4) / ImageColumnCount; WidthSection++)
                     {
-                        for (int num78 = 0; num78 < num75; num78++)
+                        for (int CurRow = 0; CurRow < ImageRowCount; CurRow++)
                         {
-                            for (int num79 = 0; num79 < 32; num79++)
+                            for (int SwizzleIndex = 0; SwizzleIndex < 32; SwizzleIndex++)
                             {
-                                for (int num80 = 0; num80 < num76; num80++)
+                                for (int CurColumn = 0; CurColumn < ImageColumnCount; CurColumn++)
                                 {
-                                    int num81 = SwizzleLookup[num79];
-                                    int num82 = num81 / 4;
-                                    int num83 = num81 % 4;
-                                    int somethingHeight = (n * num75 + num78) * 8 + num82;
-                                    int somethingWidth = (num77 * 4 + num83) * num76 + num80;
+                                    int CurSwizzle = SwizzleLookup[SwizzleIndex];
+                                    int somethingHeight = (HeightSection * ImageRowCount + CurRow) * 8 + (CurSwizzle / 4);
+                                    int somethingWidth = (WidthSection * 4 + (CurSwizzle % 4)) * ImageColumnCount + CurColumn;
+
                                     if (SwizzleSize == 1)
                                     {
                                         TextureUnswizzleBuffer[2] = (byte)msCurFile.ReadByte();
                                         TextureUnswizzleBuffer[1] = (byte)msCurFile.ReadByte();
                                         TextureUnswizzleBuffer[0] = (byte)msCurFile.ReadByte();
                                         TextureUnswizzleBuffer[3] = (byte)msCurFile.ReadByte();
-                                        somethingHeight = ImageWidth - somethingHeight - 1;
+                                        somethingHeight = ImageHeight - somethingHeight - 1;
                                     }
                                     else
                                     {
-                                        msCurFile.Read(TextureUnswizzleBuffer, 0, num71);
+                                        msCurFile.Read(TextureUnswizzleBuffer, 0, TextureUnswizzleBufferSize);
                                     }
-                                    int destinationIndex = num71 * (somethingHeight * num74 + somethingWidth);
-                                    Array.Copy(TextureUnswizzleBuffer, 0, TextureUnswizzled, destinationIndex, num71);
+
+                                    int destinationIndex = TextureUnswizzleBufferSize * (somethingHeight * ImageWidthInTiles + somethingWidth);
+                                    Array.Copy(TextureUnswizzleBuffer, 0, TextureUnswizzled, destinationIndex, TextureUnswizzleBufferSize);
                                 }
                             }
                         }
                     }
                 }
 
-                fileStream4.Write(TextureUnswizzled, 0, (int)msCurFile.Length);
-                fileStream4.Close();
+                fsTexture.Write(TextureUnswizzled, 0, (int)msCurFile.Length);
+                fsTexture.Close();
             }
         }
 

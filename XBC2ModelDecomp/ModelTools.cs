@@ -29,9 +29,9 @@ namespace XBC2ModelDecomp
                 if (!Directory.Exists(App.CurOutputPath))
                     Directory.CreateDirectory(App.CurOutputPath);
 
-                if (MSRD.TOC.Length > 1)
+                if (MSRD.TOC.Length > 1 && App.ExportTextures)
                 {
-                    string texturesFolderPath = App.CurOutputPath + $@"\{App.CurFileNameNoExt}_textures";
+                    string texturesFolderPath = App.CurOutputPath + @"\Textures";
                     if (!Directory.Exists(texturesFolderPath))
                         Directory.CreateDirectory(texturesFolderPath);
                     ft.ReadTextures(fsWISMT, brWISMT, MSRD, texturesFolderPath);

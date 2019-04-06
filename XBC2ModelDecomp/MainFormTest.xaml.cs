@@ -88,11 +88,12 @@ namespace XBC2ModelDecomp
         {
             if (App.FilePaths == null || App.FilePaths.Length == 0)
                 return;
-            App.SaveAllFiles = cbxAllFiles.IsChecked.Value;
+            App.ExportTextures = cbxTextures.IsChecked.Value;
             App.ExportFlexes = cbxFlexes.IsChecked.Value;
+            App.SaveAllFiles = cbxAllFiles.IsChecked.Value;
 
             txtConsole.Text = "";
-            App.PushLog($"Extracting {App.FilePaths.Length} file(s)...\nThe program may appear to freeze, this takes some time.");
+            App.PushLog($"Extracting {App.FilePaths.Length} file(s)...");
 
             Thread taskThread = new Thread(() =>
             {
