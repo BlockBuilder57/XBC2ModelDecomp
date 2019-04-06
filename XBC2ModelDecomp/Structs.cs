@@ -25,14 +25,14 @@ namespace XBC2ModelDecomp
             public int FileCount;
             public int TOCOffset;
 
-            public byte[] Unknown1;
+            public byte[] Unknown1; //0x1C long
 
             public int TextureIdsCount;
             public int TextureIdsOffset;
             public int TextureCountOffset;
 
             public MSRDDataItem[] DataItems;
-            public TOC[] TOC;
+            public MSRDTOC[] TOC;
 
             public short[] TextureIds;
             public int TextureCount;
@@ -59,13 +59,13 @@ namespace XBC2ModelDecomp
             public MSRDDataItemTypes Type;
         }
 
-        public struct TOC
+        public struct MSRDTOC
         {
             public int CompSize;
             public int FileSize;
             public int Offset;
 
-            public MemoryStream MemoryStream;
+            public MemoryStream Data;
         }
 
         public struct MSRDTexture

@@ -37,8 +37,8 @@ namespace XBC2ModelDecomp
                     ft.ReadTextures(fsWISMT, brWISMT, MSRD, texturesFolderPath);
                 }
 
-                BinaryReader brCurFile = new BinaryReader(MSRD.TOC[0].MemoryStream); //start new file
-                ft.ModelToASCII(MSRD.TOC[0].MemoryStream, brCurFile, App.CurFilePath);
+                BinaryReader brCurFile = new BinaryReader(MSRD.TOC[0].Data); //start new file
+                ft.ModelToASCII(MSRD.TOC[0].Data, brCurFile, App.CurFilePath);
 
                 App.PushLog($"Finished {Path.GetFileName(App.CurFilePath)}!\n");
             }

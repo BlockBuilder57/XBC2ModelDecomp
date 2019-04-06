@@ -268,9 +268,9 @@ namespace XBC2ModelDecomp
             {
                 fsMSRD.Seek(MSRD.MainOffset + MSRD.TextureIdsOffset, SeekOrigin.Begin); //0x244, 580
                 MSRD.TextureIds = new short[MSRD.TextureIdsCount];
-                for (int curTextureId = 0; curTextureId < MSRD.TextureIdsCount; curTextureId++)
+                for (int i = 0; i < MSRD.TextureIdsCount; i++)
                 {
-                    MSRD.TextureIds[curTextureId] = brMSRD.ReadInt16();
+                    MSRD.TextureIds[i] = brMSRD.ReadInt16();
                 }
             }
             
@@ -283,23 +283,23 @@ namespace XBC2ModelDecomp
                 MSRD.TextureStringBufferOffset = brMSRD.ReadInt32();
 
                 MSRD.TextureInfo = new Structs.MSRDTextureInfo[MSRD.TextureCount];
-                for (int curTextureNameOffset = 0; curTextureNameOffset < MSRD.TextureCount; curTextureNameOffset++)
+                for (int i = 0; i < MSRD.TextureCount; i++)
                 {
-                    MSRD.TextureInfo[curTextureNameOffset].Unknown1 = brMSRD.ReadInt32();
-                    MSRD.TextureInfo[curTextureNameOffset].Size = brMSRD.ReadInt32();
-                    MSRD.TextureInfo[curTextureNameOffset].Offset = brMSRD.ReadInt32();
-                    MSRD.TextureInfo[curTextureNameOffset].StringOffset = brMSRD.ReadInt32();
+                    MSRD.TextureInfo[i].Unknown1 = brMSRD.ReadInt32();
+                    MSRD.TextureInfo[i].Size = brMSRD.ReadInt32();
+                    MSRD.TextureInfo[i].Offset = brMSRD.ReadInt32();
+                    MSRD.TextureInfo[i].StringOffset = brMSRD.ReadInt32();
                 }
 
                 MSRD.TextureNames = new string[MSRD.TextureCount];
-                for (int curTextureName = 0; curTextureName < MSRD.TextureCount; curTextureName++)
+                for (int i = 0; i < MSRD.TextureCount; i++)
                 {
-                    fsMSRD.Seek(MSRD.MainOffset + MSRD.TextureCountOffset + MSRD.TextureInfo[curTextureName].StringOffset, SeekOrigin.Begin);
-                    MSRD.TextureNames[curTextureName] = FormatTools.ReadNullTerminatedString(brMSRD);
+                    fsMSRD.Seek(MSRD.MainOffset + MSRD.TextureCountOffset + MSRD.TextureInfo[i].StringOffset, SeekOrigin.Begin);
+                    MSRD.TextureNames[i] = FormatTools.ReadNullTerminatedString(brMSRD);
                 }
             }
 
-            MSRD.TOC = new Structs.TOC[MSRD.FileCount];
+            MSRD.TOC = new Structs.MSRDTOC[MSRD.FileCount];
             for (int curFileOffset = 0; curFileOffset < MSRD.FileCount; curFileOffset++)
             {
                 fsMSRD.Seek(MSRD.MainOffset + MSRD.TOCOffset + (curFileOffset * 12), SeekOrigin.Begin); //prevents errors I guess
@@ -308,7 +308,7 @@ namespace XBC2ModelDecomp
                 MSRD.TOC[curFileOffset].Offset = brMSRD.ReadInt32();
 
                 App.PushLog($"Decompressing file{curFileOffset} in MSRD...");
-                MSRD.TOC[curFileOffset].MemoryStream = XBC1(fsMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.CurOutputPath + @"\RawFiles");
+                MSRD.TOC[curFileOffset].Data = XBC1(fsMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.CurOutputPath + @"\RawFiles");
             }
 
             return MSRD;
@@ -1038,15 +1038,14 @@ namespace XBC2ModelDecomp
                 return;
             App.PushLog("Reading textures...");
 
-            MemoryStream msCurFile = XBC1(fsWISMT, brWISMT, MSRD.TOC[1].Offset);
-            BinaryReader brCurFile = new BinaryReader(msCurFile);
+            BinaryReader brCurFile = new BinaryReader(MSRD.TOC[1].Data);
 
             int[] TextureHeightArray = new int[MSRD.TextureIdsCount];
             int[] TextureWidthArray = new int[MSRD.TextureIdsCount];
             int[] TextureTypeArray = new int[MSRD.TextureIdsCount];
             for (int i = 0; i < MSRD.TextureIdsCount; i++)
             {
-                msCurFile.Seek(MSRD.DataItems[i + 3].Offset + MSRD.DataItems[i + 3].Size - 32, SeekOrigin.Begin);
+                MSRD.TOC[1].Data.Seek(MSRD.DataItems[i + 3].Offset + MSRD.DataItems[i + 3].Size - 32, SeekOrigin.Begin);
                 TextureHeightArray[i] = brCurFile.ReadInt32();
                 TextureWidthArray[i] = brCurFile.ReadInt32();
                 brCurFile.ReadInt32();
@@ -1054,10 +1053,9 @@ namespace XBC2ModelDecomp
                 TextureTypeArray[i] = brCurFile.ReadInt32();
             }
 
-            for (int i = 0; i < MSRD.TextureCount - 2; i++)
+            for (int i = 0; i < MSRD.TextureIdsCount - 2; i++)
             {
-                msCurFile = XBC1(fsWISMT, brWISMT, MSRD.TOC[i + 2].Offset);
-                brCurFile = new BinaryReader(msCurFile);
+                brCurFile = new BinaryReader(MSRD.TOC[i + 2].Data);
                 int TextureType = 0;
                 switch(TextureTypeArray[i])
                 {
@@ -1078,7 +1076,7 @@ namespace XBC2ModelDecomp
                         break;
                     case 0:
                     default:
-                        Console.WriteLine("unknown texture type " + TextureTypeArray[i]);
+                        App.PushLog("unknown texture type " + TextureTypeArray[i]);
                         return;
                 }
 
@@ -1125,30 +1123,30 @@ namespace XBC2ModelDecomp
                 else
                 {
                     fsTexture = new FileStream($@"{texturesFolderPath}\{i.ToString("d2")}_{MSRD.TextureNames[MSRD.TextureIds[i]]}.dds", FileMode.Create);
-                    BinaryWriter binaryWriter = new BinaryWriter(fsTexture);
-                    binaryWriter.Write(0x7C20534444); //magic
-                    binaryWriter.Write(0x1007); //flags
-                    binaryWriter.Write(ImageHeight);
-                    binaryWriter.Write(ImageWidth);
-                    binaryWriter.Write(msCurFile.Length);
-                    binaryWriter.Write(0x1);
+                    BinaryWriter brTexture = new BinaryWriter(fsTexture);
+                    brTexture.Write(0x7C20534444); //magic
+                    brTexture.Write(0x1007); //flags
+                    brTexture.Write(ImageHeight);
+                    brTexture.Write(ImageWidth);
+                    brTexture.Write(MSRD.TOC[i + 2].Data.Length);
+                    brTexture.Write(0x1);
                     fsTexture.Seek(0x2C, SeekOrigin.Current);
-                    binaryWriter.Write(0x20);
-                    binaryWriter.Write(0x4);
-                    binaryWriter.Write(DDSFourCC);
+                    brTexture.Write(0x20);
+                    brTexture.Write(0x4);
+                    brTexture.Write(DDSFourCC);
                     fsTexture.Seek(0x28, SeekOrigin.Current);
                     if (DDSFourCC == 0x30315844) //DXT10 header
                     {
-                        binaryWriter.Write(TextureType);
-                        binaryWriter.Write(3); //resourceDimension
-                        binaryWriter.Write(0); //miscFlag
-                        binaryWriter.Write(1); //arraySize
-                        binaryWriter.Write(0); //miscFlags2
+                        brTexture.Write(TextureType);
+                        brTexture.Write(3); //resourceDimension
+                        brTexture.Write(0); //miscFlag
+                        brTexture.Write(1); //arraySize
+                        brTexture.Write(0); //miscFlags2
                     }
                 }
 
                 byte[] TextureUnswizzleBuffer = new byte[16];
-                byte[] TextureUnswizzled = new byte[msCurFile.Length];
+                byte[] TextureUnswizzled = new byte[MSRD.TOC[i + 2].Data.Length];
 
                 int ImageHeightInTiles = ImageHeight / SwizzleSize;
                 int ImageWidthInTiles = ImageWidth / SwizzleSize;
@@ -1187,15 +1185,15 @@ namespace XBC2ModelDecomp
 
                                     if (SwizzleSize == 1)
                                     {
-                                        TextureUnswizzleBuffer[2] = (byte)msCurFile.ReadByte();
-                                        TextureUnswizzleBuffer[1] = (byte)msCurFile.ReadByte();
-                                        TextureUnswizzleBuffer[0] = (byte)msCurFile.ReadByte();
-                                        TextureUnswizzleBuffer[3] = (byte)msCurFile.ReadByte();
+                                        TextureUnswizzleBuffer[2] = (byte)MSRD.TOC[i + 2].Data.ReadByte();
+                                        TextureUnswizzleBuffer[1] = (byte)MSRD.TOC[i + 2].Data.ReadByte();
+                                        TextureUnswizzleBuffer[0] = (byte)MSRD.TOC[i + 2].Data.ReadByte();
+                                        TextureUnswizzleBuffer[3] = (byte)MSRD.TOC[i + 2].Data.ReadByte();
                                         somethingHeight = ImageHeight - somethingHeight - 1;
                                     }
                                     else
                                     {
-                                        msCurFile.Read(TextureUnswizzleBuffer, 0, TextureUnswizzleBufferSize);
+                                        MSRD.TOC[i + 2].Data.Read(TextureUnswizzleBuffer, 0, TextureUnswizzleBufferSize);
                                     }
 
                                     int destinationIndex = TextureUnswizzleBufferSize * (somethingHeight * ImageWidthInTiles + somethingWidth);
@@ -1206,7 +1204,7 @@ namespace XBC2ModelDecomp
                     }
                 }
 
-                fsTexture.Write(TextureUnswizzled, 0, (int)msCurFile.Length);
+                fsTexture.Write(TextureUnswizzled, 0, (int)MSRD.TOC[i + 2].Data.Length);
                 fsTexture.Close();
             }
         }
