@@ -23,6 +23,14 @@ namespace XBC2ModelDecomp
 
             Structs.MSRD MSRD = ft.ReadMSRD(fsWISMT, brWISMT);
 
+            if (App.ExportAnims && File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".mot"))
+            {
+                FileStream fsMOT = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".mot", FileMode.Open, FileAccess.Read);
+                BinaryReader brMOT = new BinaryReader(fsMOT);
+
+                Structs.SAR1 SAR1 = ft.ReadSAR1(fsMOT, brMOT);
+            }
+
             //start mesh file
             if (MSRD.TOC.Length > 0)
             {

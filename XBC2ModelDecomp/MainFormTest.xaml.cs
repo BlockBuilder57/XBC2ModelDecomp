@@ -90,6 +90,7 @@ namespace XBC2ModelDecomp
                 return;
             App.ExportTextures = cbxTextures.IsChecked.Value;
             App.ExportFlexes = cbxFlexes.IsChecked.Value;
+            App.ExportAnims = cbxAnims.IsChecked.Value;
             App.SaveAllFiles = cbxAllFiles.IsChecked.Value;
 
             txtConsole.Text = "";

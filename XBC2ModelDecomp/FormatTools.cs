@@ -95,7 +95,10 @@ namespace XBC2ModelDecomp
             else
                 safePath += SAR1.Path;
 
-            if (App.SaveAllFiles && !Directory.Exists(safePath))
+            if (fsSAR1.Name.Contains(".mot") && App.ExportAnims)
+                safePath = App.CurOutputPath + @"\Animations\";
+
+            if (App.SaveAllFiles || (fsSAR1.Name.Contains(".mot") && App.ExportAnims) && !Directory.Exists(safePath))
                 Directory.CreateDirectory(safePath);
 
             SAR1.TOCItems = new Structs.SARTOC[SAR1.NumFiles];
@@ -137,7 +140,7 @@ namespace XBC2ModelDecomp
                 SAR1.BCItems[i].Data = new MemoryStream(SAR1.BCItems[i].FileSize - SAR1.BCItems[i].OffsetToData);
                 fsSAR1.CopyTo(SAR1.BCItems[i].Data);
 
-                if (App.SaveAllFiles)
+                if (App.SaveAllFiles || (fsSAR1.Name.Contains(".mot") && App.ExportAnims))
                 {
                     FileStream outputter = new FileStream($@"{safePath}\{SAR1.TOCItems[i].Filename}", FileMode.OpenOrCreate);
                     SAR1.BCItems[i].Data.WriteTo(outputter);

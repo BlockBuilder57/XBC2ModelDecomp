@@ -26,6 +26,7 @@ namespace XBC2ModelDecomp
 
         public static bool ExportTextures;
         public static bool ExportFlexes;
+        public static bool ExportAnims;
         public static bool SaveAllFiles;
 
         public delegate void Log(object logMessage);
