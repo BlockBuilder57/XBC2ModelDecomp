@@ -28,7 +28,10 @@ namespace XBC2ModelDecomp
                 FileStream fsMOT = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".mot", FileMode.Open, FileAccess.Read);
                 BinaryReader brMOT = new BinaryReader(fsMOT);
 
-                Structs.SAR1 SAR1 = ft.ReadSAR1(fsMOT, brMOT);
+                Structs.SAR1 SAR1 = ft.ReadSAR1(fsMOT, brMOT, @"\Animations\", App.ExportAnims);
+
+                brMOT.Dispose();
+                fsMOT.Dispose();
             }
 
             //start mesh file
@@ -54,6 +57,9 @@ namespace XBC2ModelDecomp
             {
                 App.PushLog($"No files found in {Path.GetFileName(App.CurFilePath)}?\n");
             }
+
+            brWISMT.Dispose();
+            fsWISMT.Dispose();
         }
     }
 }

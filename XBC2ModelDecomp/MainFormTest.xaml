@@ -34,7 +34,7 @@
         <CheckBox x:Name="cbxTextures" Content="Save textures" ToolTip="Textures will be saved to the Textures folder." IsChecked="True" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="3" VerticalAlignment="Top"/>
         <CheckBox x:Name="cbxFlexes" Content="Save facial flexes" ToolTip="Facial flexes will be saved to the model file. This makes the file quite large in size!" HorizontalAlignment="Left" Margin="120,0,0,0" Grid.Row="3" VerticalAlignment="Top"/>
         <CheckBox x:Name="cbxAnims" Content="Save animations" ToolTip="Animations will be saved to the Animations folder." HorizontalAlignment="Left" Margin="240,0,0,0" Grid.Row="3" VerticalAlignment="Top"/>
-        <CheckBox x:Name="cbxAllFiles" Content="Save all files in containers" ToolTip="All raw files contained in the model's files will be extracted to the RawFiles folder." HorizontalAlignment="Left" Margin="10,15,0,0" Grid.Row="3" VerticalAlignment="Top"/>
+        <CheckBox x:Name="cbxRawFiles" Content="Save raw files in containers" ToolTip="All raw files contained in the model's files will be extracted to the RawFiles folder." HorizontalAlignment="Left" Margin="10,15,0,0" Grid.Row="3" VerticalAlignment="Top"/>
         <Button x:Name="btnDecomp" Content="Decompile" Grid.Column="1" Grid.Row="3" HorizontalAlignment="Left" Margin="0,6,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="DecompileFile"/>
 
         <Label Content="Console Output:" Grid.Column="0" Grid.Row="4" HorizontalAlignment="Left" Margin="10,5,0,-5" VerticalAlignment="Top" Height="18" Width="100" Padding="0"/>

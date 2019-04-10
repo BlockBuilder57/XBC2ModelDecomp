@@ -91,7 +91,7 @@ namespace XBC2ModelDecomp
             App.ExportTextures = cbxTextures.IsChecked.Value;
             App.ExportFlexes = cbxFlexes.IsChecked.Value;
             App.ExportAnims = cbxAnims.IsChecked.Value;
-            App.SaveAllFiles = cbxAllFiles.IsChecked.Value;
+            App.SaveRawFiles = cbxRawFiles.IsChecked.Value;
 
             txtConsole.Text = "";
             App.PushLog($"Extracting {App.FilePaths.Length} file(s)...");

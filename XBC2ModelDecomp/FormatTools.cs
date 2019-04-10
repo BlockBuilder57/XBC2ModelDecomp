@@ -24,35 +24,35 @@ namespace XBC2ModelDecomp
             return text;
         }
 
-        public MemoryStream XBC1(FileStream fileStream, BinaryReader binaryReader, int offset, string saveToFileName = "", string savetoFilePath = "")
+        public MemoryStream ReadXBC1(Stream sXBC1, BinaryReader brXBC1, int offset, string saveToFileName = "", string savetoFilePath = "")
         {
-            if (fileStream == null || binaryReader == null || offset > fileStream.Length || offset < 0)
+            if (sXBC1 == null || brXBC1 == null || offset > sXBC1.Length || offset < 0)
                 return null;
-            fileStream.Seek(offset, SeekOrigin.Begin);
-            int XBC1Magic = binaryReader.ReadInt32(); //nice meme
+            sXBC1.Seek(offset, SeekOrigin.Begin);
+            int XBC1Magic = brXBC1.ReadInt32(); //nice meme
             if (XBC1Magic != 0x31636278)
             {
                 App.PushLog("XBC1 header invalid!");
                 return null;
             }
-            binaryReader.ReadInt32();
-            int outputFileSize = binaryReader.ReadInt32();
-            int compressedLength = binaryReader.ReadInt32();
-            binaryReader.ReadInt32();
+            brXBC1.ReadInt32();
+            int outputFileSize = brXBC1.ReadInt32();
+            int compressedLength = brXBC1.ReadInt32();
+            brXBC1.ReadInt32();
 
             //string fileInfo = ReadNullTerminatedString(binaryReader);
 
-            fileStream.Seek(offset + 0x30, SeekOrigin.Begin);
+            sXBC1.Seek(offset + 0x30, SeekOrigin.Begin);
             byte[] fileBuffer = new byte[outputFileSize >= compressedLength ? outputFileSize : compressedLength];
 
             MemoryStream msFile = new MemoryStream();
-            fileStream.Read(fileBuffer, 0, compressedLength);
+            sXBC1.Read(fileBuffer, 0, compressedLength);
 
             ZOutputStream ZOutFile = new ZOutputStream(msFile);
             ZOutFile.Write(fileBuffer, 0, compressedLength);
             ZOutFile.Flush();
 
-            if (App.SaveAllFiles && !string.IsNullOrWhiteSpace(saveToFileName))
+            if (App.SaveRawFiles && !string.IsNullOrWhiteSpace(saveToFileName))
             {
                 if (!string.IsNullOrWhiteSpace(savetoFilePath) && !Directory.Exists(savetoFilePath))
                     Directory.CreateDirectory(savetoFilePath);
@@ -66,10 +66,10 @@ namespace XBC2ModelDecomp
             return msFile;
         }
 
-        public Structs.SAR1 ReadSAR1(FileStream fsSAR1, BinaryReader brSAR1)
+        public Structs.SAR1 ReadSAR1(Stream sSAR1, BinaryReader brSAR1, string folderPath, bool folderConditional)
         {
             App.PushLog("Parsing SAR1...");
-            fsSAR1.Seek(0, SeekOrigin.Begin);
+            sSAR1.Seek(0, SeekOrigin.Begin);
             int SAR1Magic = brSAR1.ReadInt32();
             if (SAR1Magic != 0x53415231)
             {
@@ -89,22 +89,19 @@ namespace XBC2ModelDecomp
                 Path = ReadNullTerminatedString(brSAR1)
             };
 
-            string safePath = App.CurOutputPath + @"\RawFiles\";
+            string safePath = App.CurOutputPath + folderPath;
             if (SAR1.Path[1] == ':')
                 safePath += SAR1.Path.Substring(3);
             else
                 safePath += SAR1.Path;
 
-            if (fsSAR1.Name.Contains(".mot") && App.ExportAnims)
-                safePath = App.CurOutputPath + @"\Animations\";
-
-            if (App.SaveAllFiles || (fsSAR1.Name.Contains(".mot") && App.ExportAnims) && !Directory.Exists(safePath))
+            if (folderConditional && !Directory.Exists(safePath))
                 Directory.CreateDirectory(safePath);
 
             SAR1.TOCItems = new Structs.SARTOC[SAR1.NumFiles];
             for (int i = 0; i < SAR1.NumFiles; i++)
             {
-                fsSAR1.Seek(SAR1.TOCOffset + (i * 0x40), SeekOrigin.Begin);
+                sSAR1.Seek(SAR1.TOCOffset + (i * 0x40), SeekOrigin.Begin);
                 SAR1.TOCItems[i] = new Structs.SARTOC
                 {
                     Offset = brSAR1.ReadInt32(),
@@ -119,7 +116,7 @@ namespace XBC2ModelDecomp
             
             for (int i = 0; i < SAR1.NumFiles; i++)
             {
-                fsSAR1.Seek(SAR1.TOCItems[i].Offset, SeekOrigin.Begin);
+                sSAR1.Seek(SAR1.TOCItems[i].Offset, SeekOrigin.Begin);
                 int BCMagic = brSAR1.ReadInt32();
                 if (BCMagic != 0x00004342)
                 {
@@ -135,12 +132,12 @@ namespace XBC2ModelDecomp
                     OffsetToData = brSAR1.ReadInt32(),
                 };
 
-                fsSAR1.Seek(SAR1.TOCItems[i].Offset + SAR1.BCItems[i].OffsetToData + 0x4, SeekOrigin.Begin);
+                sSAR1.Seek(SAR1.TOCItems[i].Offset + SAR1.BCItems[i].OffsetToData + 0x4, SeekOrigin.Begin);
 
                 SAR1.BCItems[i].Data = new MemoryStream(SAR1.BCItems[i].FileSize - SAR1.BCItems[i].OffsetToData);
-                fsSAR1.CopyTo(SAR1.BCItems[i].Data);
+                sSAR1.CopyTo(SAR1.BCItems[i].Data);
 
-                if (App.SaveAllFiles || (fsSAR1.Name.Contains(".mot") && App.ExportAnims))
+                if (folderConditional)
                 {
                     FileStream outputter = new FileStream($@"{safePath}\{SAR1.TOCItems[i].Filename}", FileMode.OpenOrCreate);
                     SAR1.BCItems[i].Data.WriteTo(outputter);
@@ -154,10 +151,10 @@ namespace XBC2ModelDecomp
             return SAR1;
         }
 
-        public Structs.SKEL ReadSKEL(Stream fsSKEL, BinaryReader brSKEL)
+        public Structs.SKEL ReadSKEL(Stream sSKEL, BinaryReader brSKEL)
         {
             App.PushLog("Parsing SKEL...");
-            fsSKEL.Seek(0, SeekOrigin.Begin);
+            sSKEL.Seek(0, SeekOrigin.Begin);
             int SKELMagic = brSKEL.ReadInt32();
             if (SKELMagic != 0x4C454B53)
             {
@@ -184,7 +181,7 @@ namespace XBC2ModelDecomp
             }
 
             SKEL.Parents = new short[SKEL.TOCItems[2].Count];
-            fsSKEL.Seek(SKEL.TOCItems[2].Offset - 0x24, SeekOrigin.Begin);
+            sSKEL.Seek(SKEL.TOCItems[2].Offset - 0x24, SeekOrigin.Begin);
             for (int i = 0; i < SKEL.Parents.Length; i++)
             {
                 SKEL.Parents[i] = brSKEL.ReadInt16();
@@ -193,18 +190,18 @@ namespace XBC2ModelDecomp
             SKEL.Nodes = new Structs.SKELNodes[SKEL.TOCItems[3].Count];
             for (int i = 0; i < SKEL.Nodes.Length; i++)
             {
-                fsSKEL.Seek(SKEL.TOCItems[3].Offset - 0x24 + (i * 0x10), SeekOrigin.Begin);
+                sSKEL.Seek(SKEL.TOCItems[3].Offset - 0x24 + (i * 0x10), SeekOrigin.Begin);
                 SKEL.Nodes[i] = new Structs.SKELNodes
                 {
                     Offset = brSKEL.ReadInt32(),
                     Unknown1 = brSKEL.ReadBytes(0xC)
                 };
-                fsSKEL.Seek(SKEL.Nodes[i].Offset - 0x24, SeekOrigin.Begin);
+                sSKEL.Seek(SKEL.Nodes[i].Offset - 0x24, SeekOrigin.Begin);
                 SKEL.Nodes[i].Name = ReadNullTerminatedString(brSKEL);
             }
 
             SKEL.Transforms = new Structs.SKELTransforms[SKEL.TOCItems[4].Count];
-            fsSKEL.Seek(SKEL.TOCItems[4].Offset - 0x24, SeekOrigin.Begin);
+            sSKEL.Seek(SKEL.TOCItems[4].Offset - 0x24, SeekOrigin.Begin);
             for (int i = 0; i < SKEL.Transforms.Length; i++)
             {
                 SKEL.Transforms[i] = new Structs.SKELTransforms
@@ -218,10 +215,10 @@ namespace XBC2ModelDecomp
             return SKEL;
         }
 
-        public Structs.MSRD ReadMSRD(FileStream fsMSRD, BinaryReader brMSRD)
+        public Structs.MSRD ReadMSRD(Stream sMSRD, BinaryReader brMSRD)
         {
             App.PushLog("Parsing MSRD...");
-            fsMSRD.Seek(0, SeekOrigin.Begin);
+            sMSRD.Seek(0, SeekOrigin.Begin);
             int MSRDMagic = brMSRD.ReadInt32();
             if (MSRDMagic != 0x4D535244)
             {
@@ -253,7 +250,7 @@ namespace XBC2ModelDecomp
             if (MSRD.DataItemsOffset != 0)
             {
                 MSRD.DataItems = new Structs.MSRDDataItem[MSRD.DataItemsCount];
-                fsMSRD.Seek(MSRD.MainOffset + MSRD.DataItemsOffset, SeekOrigin.Begin); //0x5C, 92
+                sMSRD.Seek(MSRD.MainOffset + MSRD.DataItemsOffset, SeekOrigin.Begin); //0x5C, 92
                 for (int i = 0; i < MSRD.DataItemsCount; i++)
                 {
                     MSRD.DataItems[i] = new Structs.MSRDDataItem
@@ -263,13 +260,13 @@ namespace XBC2ModelDecomp
                         id1 = brMSRD.ReadInt16(),
                         Type = (Structs.MSRDDataItemTypes)brMSRD.ReadInt16()
                     };
-                    fsMSRD.Seek(0x8, SeekOrigin.Current);
+                    sMSRD.Seek(0x8, SeekOrigin.Current);
                 }
             }
             
             if (MSRD.TextureIdsOffset != 0)
             {
-                fsMSRD.Seek(MSRD.MainOffset + MSRD.TextureIdsOffset, SeekOrigin.Begin); //0x244, 580
+                sMSRD.Seek(MSRD.MainOffset + MSRD.TextureIdsOffset, SeekOrigin.Begin); //0x244, 580
                 MSRD.TextureIds = new short[MSRD.TextureIdsCount];
                 for (int i = 0; i < MSRD.TextureIdsCount; i++)
                 {
@@ -279,7 +276,7 @@ namespace XBC2ModelDecomp
             
             if (MSRD.TextureCountOffset != 0)
             {
-                fsMSRD.Seek(MSRD.MainOffset + MSRD.TextureCountOffset, SeekOrigin.Begin); //0x25E, 606
+                sMSRD.Seek(MSRD.MainOffset + MSRD.TextureCountOffset, SeekOrigin.Begin); //0x25E, 606
                 MSRD.TextureCount = brMSRD.ReadInt32(); //0x25E
                 MSRD.TextureChunkSize = brMSRD.ReadInt32();
                 MSRD.Unknown2 = brMSRD.ReadInt32();
@@ -297,7 +294,7 @@ namespace XBC2ModelDecomp
                 MSRD.TextureNames = new string[MSRD.TextureCount];
                 for (int i = 0; i < MSRD.TextureCount; i++)
                 {
-                    fsMSRD.Seek(MSRD.MainOffset + MSRD.TextureCountOffset + MSRD.TextureInfo[i].StringOffset, SeekOrigin.Begin);
+                    sMSRD.Seek(MSRD.MainOffset + MSRD.TextureCountOffset + MSRD.TextureInfo[i].StringOffset, SeekOrigin.Begin);
                     MSRD.TextureNames[i] = FormatTools.ReadNullTerminatedString(brMSRD);
                 }
             }
@@ -305,22 +302,22 @@ namespace XBC2ModelDecomp
             MSRD.TOC = new Structs.MSRDTOC[MSRD.FileCount];
             for (int curFileOffset = 0; curFileOffset < MSRD.FileCount; curFileOffset++)
             {
-                fsMSRD.Seek(MSRD.MainOffset + MSRD.TOCOffset + (curFileOffset * 12), SeekOrigin.Begin); //prevents errors I guess
+                sMSRD.Seek(MSRD.MainOffset + MSRD.TOCOffset + (curFileOffset * 12), SeekOrigin.Begin); //prevents errors I guess
                 MSRD.TOC[curFileOffset].CompSize = brMSRD.ReadInt32();
                 MSRD.TOC[curFileOffset].FileSize = brMSRD.ReadInt32();
                 MSRD.TOC[curFileOffset].Offset = brMSRD.ReadInt32();
 
                 App.PushLog($"Decompressing file{curFileOffset} in MSRD...");
-                MSRD.TOC[curFileOffset].Data = XBC1(fsMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.CurOutputPath + @"\RawFiles");
+                MSRD.TOC[curFileOffset].Data = ReadXBC1(sMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.CurOutputPath + @"\RawFiles");
             }
 
             return MSRD;
         }
 
-        public Structs.MXMD ReadMXMD(FileStream fsMXMD, BinaryReader brMXMD)
+        public Structs.MXMD ReadMXMD(Stream sMXMD, BinaryReader brMXMD)
         {
             App.PushLog("Parsing MXMD...");
-            fsMXMD.Seek(0, SeekOrigin.Begin);
+            sMXMD.Seek(0, SeekOrigin.Begin);
             int MXMDMagic = brMXMD.ReadInt32();
             if (MXMDMagic != 0x4D584D44)
             {
@@ -364,7 +361,7 @@ namespace XBC2ModelDecomp
 
             if (MXMD.ModelStruct.MorphControllersOffset != 0)
             {
-                fsMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MorphControllersOffset, SeekOrigin.Begin);
+                sMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MorphControllersOffset, SeekOrigin.Begin);
                 MXMD.ModelStruct.MorphControls = new Structs.MXMDMorphControls
                 {
                     TableOffset = brMXMD.ReadInt32(),
@@ -374,10 +371,10 @@ namespace XBC2ModelDecomp
                 };
 
                 MXMD.ModelStruct.MorphControls.Controls = new Structs.MXMDMorphControl[MXMD.ModelStruct.MorphControls.Count];
-                long nextPosition = fsMXMD.Position;
+                long nextPosition = sMXMD.Position;
                 for (int i = 0; i < MXMD.ModelStruct.MorphControls.Count; i++)
                 {
-                    fsMXMD.Seek(nextPosition, SeekOrigin.Begin);
+                    sMXMD.Seek(nextPosition, SeekOrigin.Begin);
                     nextPosition += 0x1C;
                     MXMD.ModelStruct.MorphControls.Controls[i] = new Structs.MXMDMorphControl
                     {
@@ -386,14 +383,14 @@ namespace XBC2ModelDecomp
                         Unknown1 = brMXMD.ReadBytes(0x14)
                     };
 
-                    fsMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MorphControllersOffset + MXMD.ModelStruct.MorphControls.Controls[i].NameOffset1, SeekOrigin.Begin);
+                    sMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MorphControllersOffset + MXMD.ModelStruct.MorphControls.Controls[i].NameOffset1, SeekOrigin.Begin);
                     MXMD.ModelStruct.MorphControls.Controls[i].Name = FormatTools.ReadNullTerminatedString(brMXMD);
                 }
             }
 
             if (MXMD.ModelStruct.MorphNamesOffset != 0)
             {
-                fsMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MorphNamesOffset, SeekOrigin.Begin);
+                sMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MorphNamesOffset, SeekOrigin.Begin);
                 MXMD.ModelStruct.MorphNames = new Structs.MXMDMorphNames
                 {
                     TableOffset = brMXMD.ReadInt32(),
@@ -403,10 +400,10 @@ namespace XBC2ModelDecomp
                 };
 
                 MXMD.ModelStruct.MorphNames.Names = new Structs.MXMDMorphName[MXMD.ModelStruct.MorphNames.Count];
-                long nextPosition = fsMXMD.Position;
+                long nextPosition = sMXMD.Position;
                 for (int i = 0; i < MXMD.ModelStruct.MorphNames.Count; i++)
                 {
-                    fsMXMD.Seek(nextPosition, SeekOrigin.Begin);
+                    sMXMD.Seek(nextPosition, SeekOrigin.Begin);
                     nextPosition += 0x10;
                     MXMD.ModelStruct.MorphNames.Names[i] = new Structs.MXMDMorphName
                     {
@@ -416,14 +413,14 @@ namespace XBC2ModelDecomp
                         Unknown3 = brMXMD.ReadInt32(),
                     };
 
-                    fsMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MorphControllersOffset + MXMD.ModelStruct.MorphNames.Names[i].NameOffset, SeekOrigin.Begin);
+                    sMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MorphControllersOffset + MXMD.ModelStruct.MorphNames.Names[i].NameOffset, SeekOrigin.Begin);
                     MXMD.ModelStruct.MorphNames.Names[i].Name = FormatTools.ReadNullTerminatedString(brMXMD);
                 }
             }
 
             if (MXMD.ModelStruct.MeshesOffset != 0)
             {
-                fsMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MeshesOffset, SeekOrigin.Begin);
+                sMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.MeshesOffset, SeekOrigin.Begin);
                 MXMD.ModelStruct.Meshes = new Structs.MXMDMeshes
                 {
                     TableOffset = brMXMD.ReadInt32(),
@@ -435,7 +432,7 @@ namespace XBC2ModelDecomp
                     BoundingRadius = brMXMD.ReadSingle()
                 };
 
-                fsMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.Meshes.TableOffset, SeekOrigin.Begin);
+                sMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.Meshes.TableOffset, SeekOrigin.Begin);
                 MXMD.ModelStruct.Meshes.Meshes = new Structs.MXMDMesh[MXMD.ModelStruct.Meshes.TableCount];
                 for (int i = 0; i < MXMD.ModelStruct.Meshes.TableCount; i++)
                 {
@@ -464,7 +461,7 @@ namespace XBC2ModelDecomp
 
             if (MXMD.ModelStruct.NodesOffset != 0)
             {
-                fsMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.NodesOffset, SeekOrigin.Begin);
+                sMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.NodesOffset, SeekOrigin.Begin);
                 MXMD.ModelStruct.Nodes = new Structs.MXMDNodes
                 {
                     BoneCount = brMXMD.ReadInt32(),
@@ -479,7 +476,7 @@ namespace XBC2ModelDecomp
                 long nextPosition = MXMD.ModelStructOffset + MXMD.ModelStruct.NodesOffset + MXMD.ModelStruct.Nodes.NodeIdsOffset;
                 for (int i = 0; i < MXMD.ModelStruct.Nodes.BoneCount; i++)
                 {
-                    fsMXMD.Seek(nextPosition, SeekOrigin.Begin);
+                    sMXMD.Seek(nextPosition, SeekOrigin.Begin);
                     nextPosition += 0x18;
                     MXMD.ModelStruct.Nodes.Nodes[i] = new Structs.MXMDNode
                     {
@@ -492,14 +489,14 @@ namespace XBC2ModelDecomp
                         Unknown4 = brMXMD.ReadInt32()
                     };
 
-                    fsMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.NodesOffset + MXMD.ModelStruct.Nodes.Nodes[i].NameOffset, SeekOrigin.Begin);
+                    sMXMD.Seek(MXMD.ModelStructOffset + MXMD.ModelStruct.NodesOffset + MXMD.ModelStruct.Nodes.Nodes[i].NameOffset, SeekOrigin.Begin);
                     MXMD.ModelStruct.Nodes.Nodes[i].Name = FormatTools.ReadNullTerminatedString(brMXMD);
                 }
 
                 nextPosition = MXMD.ModelStructOffset + MXMD.ModelStruct.NodesOffset + MXMD.ModelStruct.Nodes.NodeTmsOffset;
                 for (int i = 0; i < MXMD.ModelStruct.Nodes.BoneCount; i++)
                 {
-                    fsMXMD.Seek(nextPosition, SeekOrigin.Begin);
+                    sMXMD.Seek(nextPosition, SeekOrigin.Begin);
                     nextPosition += 0x10 * 4;
 
                     //this is probably very incorrect
@@ -662,7 +659,7 @@ namespace XBC2ModelDecomp
             FileStream fsARC = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc", FileMode.Open, FileAccess.Read);
             BinaryReader brARC = new BinaryReader(fsARC);
 
-            Structs.SAR1 SAR1 = ReadSAR1(fsARC, brARC);
+            Structs.SAR1 SAR1 = ReadSAR1(fsARC, brARC, @"\RawFiles\", App.SaveRawFiles);
             BinaryReader brSKEL = new BinaryReader(SAR1.ItemBySearch(".skl").Data);
             Structs.SKEL SKEL = ReadSKEL(brSKEL.BaseStream, brSKEL);
 
@@ -1028,16 +1025,13 @@ namespace XBC2ModelDecomp
             }
 
             asciiWriter.Flush();
-            asciiWriter.Close();
-
-            memoryStream.Close();
-            binaryReader.Close();
+            asciiWriter.Dispose();
             GC.Collect();
         }
 
-        public void ReadTextures(FileStream fsWISMT, BinaryReader brWISMT, Structs.MSRD MSRD, string texturesFolderPath)
+        public void ReadTextures(Stream sWISMT, BinaryReader brWISMT, Structs.MSRD MSRD, string texturesFolderPath)
         {
-            if (fsWISMT == null || brWISMT == null)
+            if (sWISMT == null || brWISMT == null)
                 return;
             App.PushLog("Reading textures...");
 
@@ -1112,39 +1106,39 @@ namespace XBC2ModelDecomp
                 if (TextureTypeArray[i] == 37)
                 {
                     fsTexture = new FileStream($@"{texturesFolderPath}\{i.ToString("d2")}_{MSRD.TextureNames[MSRD.TextureIds[i]]}.tga", FileMode.Create);
-                    BinaryWriter brTexture = new BinaryWriter(fsTexture);
-                    brTexture.Write(0x20000); //type stuff
-                    brTexture.Write(0x0); //color map info
-                    brTexture.Write(0x0); //origin position
-                    brTexture.Write((short)ImageWidth);
-                    brTexture.Write((short)ImageHeight);
-                    brTexture.Write(0x820); //pixel size and descriptor
-                    brTexture.Seek(0x12, SeekOrigin.Begin);
+                    BinaryWriter bwTexture = new BinaryWriter(fsTexture);
+                    bwTexture.Write(0x20000); //type stuff
+                    bwTexture.Write(0x0); //color map info
+                    bwTexture.Write(0x0); //origin position
+                    bwTexture.Write((short)ImageWidth);
+                    bwTexture.Write((short)ImageHeight);
+                    bwTexture.Write(0x820); //pixel size and descriptor
+                    bwTexture.Seek(0x12, SeekOrigin.Begin);
                     TextureUnswizzleBufferSize = BitsPerPixel[TextureType] / 8;
                     SwizzleSize = 1;
                 }
                 else
                 {
                     fsTexture = new FileStream($@"{texturesFolderPath}\{i.ToString("d2")}_{MSRD.TextureNames[MSRD.TextureIds[i]]}.dds", FileMode.Create);
-                    BinaryWriter brTexture = new BinaryWriter(fsTexture);
-                    brTexture.Write(0x7C20534444); //magic
-                    brTexture.Write(0x1007); //flags
-                    brTexture.Write(ImageHeight);
-                    brTexture.Write(ImageWidth);
-                    brTexture.Write(MSRD.TOC[i + 2].Data.Length);
-                    brTexture.Write(0x1);
+                    BinaryWriter bwTexture = new BinaryWriter(fsTexture);
+                    bwTexture.Write(0x7C20534444); //magic
+                    bwTexture.Write(0x1007); //flags
+                    bwTexture.Write(ImageHeight);
+                    bwTexture.Write(ImageWidth);
+                    bwTexture.Write(MSRD.TOC[i + 2].Data.Length);
+                    bwTexture.Write(0x1);
                     fsTexture.Seek(0x2C, SeekOrigin.Current);
-                    brTexture.Write(0x20);
-                    brTexture.Write(0x4);
-                    brTexture.Write(DDSFourCC);
+                    bwTexture.Write(0x20);
+                    bwTexture.Write(0x4);
+                    bwTexture.Write(DDSFourCC);
                     fsTexture.Seek(0x28, SeekOrigin.Current);
                     if (DDSFourCC == 0x30315844) //DXT10 header
                     {
-                        brTexture.Write(TextureType);
-                        brTexture.Write(3); //resourceDimension
-                        brTexture.Write(0); //miscFlag
-                        brTexture.Write(1); //arraySize
-                        brTexture.Write(0); //miscFlags2
+                        bwTexture.Write(TextureType);
+                        bwTexture.Write(3); //resourceDimension
+                        bwTexture.Write(0); //miscFlag
+                        bwTexture.Write(1); //arraySize
+                        bwTexture.Write(0); //miscFlags2
                     }
                 }
 
@@ -1208,8 +1202,10 @@ namespace XBC2ModelDecomp
                 }
 
                 fsTexture.Write(TextureUnswizzled, 0, (int)MSRD.TOC[i + 2].Data.Length);
-                fsTexture.Close();
+                fsTexture.Dispose();
             }
+
+            brCurFile.Dispose();
         }
 
         public static int[] BitsPerPixel = new int[] {

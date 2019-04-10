@@ -39,9 +39,10 @@ namespace XBC2ModelDecomp
 
             for (int i = 0; i < magicOccurences.Count; i++)
             {
-                MemoryStream ms = ft.XBC1(fileStream, binaryReader, magicOccurences[i], $"{Path.GetFileNameWithoutExtension(App.CurFilePath)}_file{i}.bin", App.CurOutputPath + $"{Path.GetFileNameWithoutExtension(App.CurFilePath)}_xbc1files");
+                MemoryStream ms = ft.ReadXBC1(fileStream, binaryReader, magicOccurences[i], $"{Path.GetFileNameWithoutExtension(App.CurFilePath)}_file{i}.bin", App.CurOutputPath + $"{Path.GetFileNameWithoutExtension(App.CurFilePath)}_xbc1files");
                 ms.Dispose();
             }
+            fileStream.Dispose();
         }
     }
 }
