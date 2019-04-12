@@ -83,6 +83,54 @@ namespace XBC2ModelDecomp
             public int StringOffset;
         }
 
+
+        //wismt file0
+        public struct Mesh
+        {
+            public int VertexTableOffset;
+            public int VertexTableCount;
+            public int FaceTableOffset;
+            public int FaceTableCount;
+
+            public byte[] Reserved1; //0xC long
+
+            public int UnknownOffset1;
+            public int UnknownOffset2;
+            public int UnknownOffset2Count;
+
+            public int MorphDataOffset;
+            public int DataSize;
+            public int DataOffset;
+            public int ExtraDataVoxOffset;
+            public int ExtraDataPointer;
+
+            public byte[] Reserved2; //0x14 long
+
+            public MeshVertexTable[] VertexTables;
+            public MeshFaceTable[] FaceTables;
+        }
+
+        public struct MeshVertexTable
+        {
+            public int DataOffset;
+            public int DataCount;
+            public int BlockSize;
+
+            public int DescOffset;
+            public int DescCount;
+
+            public byte[] Unknown1; //0xC long
+        }
+
+        public struct MeshFaceTable
+        {
+            public int Offset;
+            public int Count;
+
+            public byte[] Unknown1;
+        }
+
+
         //wimdo
         public struct MXMD
         {

@@ -529,89 +529,118 @@ namespace XBC2ModelDecomp
             return MXMD;
         }
 
+        public Structs.Mesh ReadMesh(Stream sMesh, BinaryReader brMesh)
+        {
+            App.PushLog("Parsing mesh...");
+            sMesh.Seek(0, SeekOrigin.Begin);
+
+            Structs.Mesh Mesh = new Structs.Mesh
+            {
+                VertexTableOffset = brMesh.ReadInt32(),
+                VertexTableCount = brMesh.ReadInt32(),
+                FaceTableOffset = brMesh.ReadInt32(),
+                FaceTableCount = brMesh.ReadInt32(),
+
+                Reserved1 = brMesh.ReadBytes(0xC),
+
+                UnknownOffset1 = brMesh.ReadInt32(),
+                UnknownOffset2 = brMesh.ReadInt32(),
+                UnknownOffset2Count = brMesh.ReadInt32(),
+
+                MorphDataOffset = brMesh.ReadInt32(),
+                DataSize = brMesh.ReadInt32(),
+                DataOffset = brMesh.ReadInt32(),
+                ExtraDataVoxOffset = brMesh.ReadInt32(),
+                ExtraDataPointer = brMesh.ReadInt32(),
+
+                Reserved2 = brMesh.ReadBytes(0x14)
+            };
+
+            Mesh.VertexTables = new Structs.MeshVertexTable[Mesh.VertexTableCount];
+            sMesh.Seek(Mesh.VertexTableOffset, SeekOrigin.Begin);
+            for (int i = 0; i < Mesh.VertexTableCount; i++)
+            {
+                Mesh.VertexTables[i] = new Structs.MeshVertexTable
+                {
+                    DataOffset = brMesh.ReadInt32(),
+                    DataCount = brMesh.ReadInt32(),
+                    BlockSize = brMesh.ReadInt32(),
+
+                    DescOffset = brMesh.ReadInt32(),
+                    DescCount = brMesh.ReadInt32(),
+
+                    Unknown1 = brMesh.ReadBytes(0xC)
+                };
+            }
+
+            Mesh.FaceTables = new Structs.MeshFaceTable[Mesh.VertexTableCount];
+            sMesh.Seek(Mesh.FaceTableOffset, SeekOrigin.Begin);
+            for (int i = 0; i < Mesh.FaceTableCount; i++)
+            {
+                Mesh.FaceTables[i] = new Structs.MeshFaceTable
+                {
+                    Offset = brMesh.ReadInt32(),
+                    Count = brMesh.ReadInt32(),
+
+                    Unknown1 = brMesh.ReadBytes(0xC)
+                };
+            }
+
+            return Mesh;
+        }
+
         public void ModelToASCII(Stream memoryStream, BinaryReader binaryReader, string filepath)
         {
-            memoryStream.Seek(0, SeekOrigin.Begin);
+            Structs.Mesh Mesh = ReadMesh(memoryStream, binaryReader);
 
-            int i = 0;
-            int meshPointersPointer = binaryReader.ReadInt32(); //0x0
-            int meshCount = binaryReader.ReadInt32(); //0x4
-            int meshDataPointer = binaryReader.ReadInt32(); //0x8
-            int meshCountWithFlexes = binaryReader.ReadInt32(); //0xC
-
-            memoryStream.Seek(0x18, SeekOrigin.Current);
-            int num16 = binaryReader.ReadInt32(); //0x28
-            binaryReader.ReadInt32(); //0x2C
-            int meshDataStart = binaryReader.ReadInt32(); //0x30 4096
-            binaryReader.ReadInt32(); //0x34
-            int meshExtraDataPointer = binaryReader.ReadInt32(); //0x38 496
-
-            //no clue
-            int num19 = 0;
-            int num20 = 0;
-            int[] array6 = null;
-            int[] array7 = null;
-            int[] array8 = null;
-            if (num16 > 0) //flex related?
+            int MorphDataCount = 0;
+            int MorphDataOffset2 = 0;
+            int[] MorphWeightUnknown = null;
+            int[] MorphWeightOffset = null;
+            int[] MorphWeightCount = null;
+            if (Mesh.MorphDataOffset > 0) //flex related?
             {
-                memoryStream.Seek((long)num16, SeekOrigin.Begin);
-                num19 = binaryReader.ReadInt32();
-                int num21 = binaryReader.ReadInt32();
+                memoryStream.Seek(Mesh.MorphDataOffset, SeekOrigin.Begin);
+                MorphDataCount = binaryReader.ReadInt32();
+                int MorphDataOffset1 = binaryReader.ReadInt32();
                 binaryReader.ReadInt32();
-                num20 = binaryReader.ReadInt32();
-                memoryStream.Seek((long)num21, SeekOrigin.Begin);
-                array6 = new int[num19];
-                array7 = new int[num19];
-                array8 = new int[num19];
-                for (i = 0; i < num19; i++)
+                MorphDataOffset2 = binaryReader.ReadInt32();
+                memoryStream.Seek(MorphDataOffset1, SeekOrigin.Begin);
+                MorphWeightUnknown = new int[MorphDataCount];
+                MorphWeightOffset = new int[MorphDataCount];
+                MorphWeightCount = new int[MorphDataCount];
+                for (int i = 0; i < MorphDataCount; i++)
                 {
-                    array6[i] = binaryReader.ReadInt32();
-                    array7[i] = binaryReader.ReadInt32();
-                    array8[i] = binaryReader.ReadInt32();
+                    MorphWeightUnknown[i] = binaryReader.ReadInt32();
+                    MorphWeightOffset[i] = binaryReader.ReadInt32();
+                    MorphWeightCount[i] = binaryReader.ReadInt32();
                     binaryReader.ReadInt32();
                     binaryReader.ReadInt32();
                 }
             }
 
-            int[] meshesPointers = new int[meshCount];
-            int[] array10 = new int[meshCount];
-            int[] meshesDataCount = new int[meshCount];
-            int[] array12 = new int[meshCount];
-            int[] array13 = new int[meshCount];
-            int[] array14 = new int[meshCount];
-            memoryStream.Seek(meshPointersPointer, SeekOrigin.Begin); //0x50
-            for (i = 0; i < meshCount; i++)
+            int[] meshesDataOffset = new int[Mesh.VertexTableCount];
+            int[] array10 = new int[Mesh.VertexTableCount];
+            int[] meshesDataCount = new int[Mesh.VertexTableCount];
+            int[] meshesBlockSize = new int[Mesh.VertexTableCount];
+            int[] meshesDescOffset = new int[Mesh.VertexTableCount];
+            int[] meshesDescCount = new int[Mesh.VertexTableCount];
+            for (int i = 0; i < Mesh.VertexTableCount; i++)
             {
-                meshesPointers[i] = meshDataStart + binaryReader.ReadInt32();
-                meshesDataCount[i] = binaryReader.ReadInt32(); //608???
-                array12[i] = binaryReader.ReadInt32(); //36
-                array13[i] = binaryReader.ReadInt32(); //388
-                array14[i] = binaryReader.ReadInt32(); //6
-                memoryStream.Seek(12L, SeekOrigin.Current);
+                meshesDataOffset[i] = Mesh.DataOffset + Mesh.VertexTables[i].DataOffset;
+                meshesDataCount[i] = Mesh.VertexTables[i].DataCount;
+                meshesBlockSize[i] = Mesh.VertexTables[i].BlockSize;
+                meshesDescOffset[i] = Mesh.VertexTables[i].DescOffset;
+                meshesDescCount[i] = Mesh.VertexTables[i].DescCount;
             }
 
-            int[] meshesDataStart = new int[meshCountWithFlexes];
-            int[] meshesVertexCount = new int[meshCountWithFlexes]; //5
-            memoryStream.Seek(meshDataPointer, SeekOrigin.Begin); //0xF0 80
-            for (i = 0; i < meshCountWithFlexes; i++)
+            int[] meshesVertexDataStart = new int[Mesh.FaceTableCount];
+            int[] meshesVertexCount = new int[Mesh.FaceTableCount];
+            for (int i = 0; i < Mesh.FaceTableCount; i++)
             {
-                meshesDataStart[i] = meshDataStart + binaryReader.ReadInt32();
-                meshesVertexCount[i] = binaryReader.ReadInt32();
-                binaryReader.ReadInt32();
-                binaryReader.ReadInt32();
-                binaryReader.ReadInt32();
+                meshesVertexDataStart[i] = Mesh.FaceTables[i].Offset + Mesh.DataOffset;
+                meshesVertexCount[i] = Mesh.FaceTables[i].Count;
             }
-
-            memoryStream.Seek(meshExtraDataPointer + 0x8, SeekOrigin.Begin);
-            int meshWeightBoneCount = binaryReader.ReadInt16(); //4
-            int[,] meshWeightIds = new int[meshesDataCount[meshWeightBoneCount], 4];
-            float[,] meshWeightValues = new float[meshesDataCount[meshWeightBoneCount], 4];
-            Vector3[][] meshVertices = new Vector3[meshCount][];
-            Vector3[][] meshNormals = new Vector3[meshCount][];
-            float[][,] meshFlexesX = new float[meshCount][,];
-            float[][,] meshFlexesY = new float[meshCount][,];
-            int[][] meshWeights = new int[meshCount][];
-            int[] meshUVLayers = new int[meshCount];
 
             if (!File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo"))
                 return;
@@ -645,13 +674,13 @@ namespace XBC2ModelDecomp
 
             int[] MeshesUVFaces = new int[MXMD.ModelStruct.Meshes.TableCount];
             int[] MeshesVertexBuffer = new int[MXMD.ModelStruct.Meshes.TableCount];
-            int[] array29 = new int[MXMD.ModelStruct.Meshes.TableCount];
+            int[] meshFlexCount = new int[MXMD.ModelStruct.Meshes.TableCount];
             int[] meshVertexCount = new int[MXMD.ModelStruct.Meshes.TableCount];
             for (int r = 0; r < MXMD.ModelStruct.Meshes.TableCount; r++)
             {
                 MeshesUVFaces[r] = MXMD.ModelStruct.Meshes.Meshes[r].UVFaces;
                 MeshesVertexBuffer[r] = MXMD.ModelStruct.Meshes.Meshes[r].VTBuffer;
-                array29[r] = BitConverter.GetBytes(MXMD.ModelStruct.Meshes.Meshes[r].ID).Last(); //still not sure what this is for
+                meshFlexCount[r] = BitConverter.GetBytes(MXMD.ModelStruct.Meshes.Meshes[r].ID).Last(); //still not sure what this is for
                 meshVertexCount[r] = MXMD.ModelStruct.Meshes.Meshes[r].LOD;
             }
 
@@ -665,55 +694,50 @@ namespace XBC2ModelDecomp
 
             int boneCount = SKEL.TOCItems[2].Count;
 
-            Vector3[] bonePosOrig = new Vector3[boneCount];
             Vector3[] bonePos = new Vector3[boneCount];
-            Quaternion[] boneRotOrig = new Quaternion[boneCount];
             Quaternion[] boneRot = new Quaternion[boneCount];
 
-            int[] bone_parents = new int[boneCount];
             string[] bone_names = new string[boneCount];
             Dictionary<string, int> SKELNodeNames = new Dictionary<string, int>();
 
-            for (i = 0; i < boneCount; i++)
+            for (int i = 0; i < boneCount; i++)
             {
                 Quaternion posQuat = SKEL.Transforms[i].Position;
-                bonePosOrig[i] = new Vector3(posQuat.X, posQuat.Y, posQuat.Z);
-                boneRotOrig[i] = SKEL.Transforms[i].Rotation;
+                Vector3 posVector = new Vector3(posQuat.X, posQuat.Y, posQuat.Z);
+                bonePos[i] = posVector;
 
-                bone_parents[i] = SKEL.Parents[i];
                 SKELNodeNames.Add(SKEL.Nodes[i].Name, i);
                 bone_names[i] = SKEL.Nodes[i].Name;
 
-                if (bone_parents[i] < 0) //is root
+                if (SKEL.Parents[i] < 0) //is root
                 {
-                    bonePos[i] = bonePosOrig[i];
-                    boneRot[i] = boneRotOrig[i];
+                    bonePos[i] = posVector;
+                    boneRot[i] = SKEL.Transforms[i].Rotation;
                 }
                 else
                 {
-                    int curParentIndex = bone_parents[i];
+                    int curParentIndex = SKEL.Parents[i];
                     //add rotation of parent
-                    boneRot[i] = boneRot[curParentIndex] * boneRotOrig[i];
+                    boneRot[i] = boneRot[curParentIndex] * SKEL.Transforms[i].Rotation;
                     //make position a quaternion again (for math reasons)
-                    Quaternion bonePosQuat = new Quaternion(bonePosOrig[i], 0f);
+                    Quaternion bonePosQuat = new Quaternion(posVector, 0f);
                     //multiply position and rotation (?)
                     Quaternion bonePosRotQuat = boneRot[curParentIndex] * bonePosQuat;
                     //do something or other i dunno
                     Quaternion newPosition = bonePosRotQuat * new Quaternion(-boneRot[curParentIndex].X, -boneRot[curParentIndex].Y, -boneRot[curParentIndex].Z, boneRot[curParentIndex].W);
-                    bonePos[i] = new Vector3(newPosition.X, newPosition.Y, newPosition.Z);
+                    //add position to parent's position
+                    bonePos[i] = new Vector3(newPosition.X, newPosition.Y, newPosition.Z) + bonePos[curParentIndex];
                 }
             }
 
-
             //begin ascii
             //bone time
-            StreamWriter asciiWriter = new StreamWriter($@"{App.CurOutputPath}\{Path.GetFileNameWithoutExtension(filepath) + ".ascii"}");
-            App.PushLog("Writing .ascii file...");
+            StreamWriter asciiWriter = new StreamWriter($@"{App.CurOutputPath}\{App.CurFileNameNoExt + ".ascii"}");
             asciiWriter.WriteLine(boneCount);
             for (int j = 0; j < boneCount; j++)
             {
                 asciiWriter.WriteLine(bone_names[j]);
-                asciiWriter.WriteLine(bone_parents[j]);
+                asciiWriter.WriteLine(SKEL.Parents[j]);
                 asciiWriter.Write(bonePos[j].X.ToString("0.######"));
                 asciiWriter.Write(" " + bonePos[j].Y.ToString("0.######"));
                 asciiWriter.Write(" " + bonePos[j].Z.ToString("0.######"));
@@ -727,14 +751,26 @@ namespace XBC2ModelDecomp
                 asciiWriter.WriteLine();
             }
 
+
+            memoryStream.Seek(Mesh.ExtraDataPointer + 0x8, SeekOrigin.Begin);
+            int meshWeightBoneCount = binaryReader.ReadInt16(); //4
+            int[,] meshWeightIds = new int[meshesDataCount[meshWeightBoneCount], 4];
+            float[,] meshWeightValues = new float[meshesDataCount[meshWeightBoneCount], 4];
+            Vector3[][] meshVertices = new Vector3[Mesh.VertexTableCount][];
+            Vector3[][] meshNormals = new Vector3[Mesh.VertexTableCount][];
+            float[][,] meshFlexesX = new float[Mesh.VertexTableCount][,];
+            float[][,] meshFlexesY = new float[Mesh.VertexTableCount][,];
+            int[][] meshWeights = new int[Mesh.VertexTableCount][];
+            int[] meshUVLayers = new int[Mesh.VertexTableCount];
+
             //begin meshes
-            for (int currentMesh = 0; currentMesh < meshCount; currentMesh++)
+            for (int i = 0; i < Mesh.VertexTableCount; i++)
             {
-                meshVertices[currentMesh] = new Vector3[meshesDataCount[currentMesh]];
-                meshNormals[currentMesh] = new Vector3[meshesDataCount[currentMesh]];
-                meshFlexesX[currentMesh] = new float[meshesDataCount[currentMesh], 4];
-                meshFlexesY[currentMesh] = new float[meshesDataCount[currentMesh], 4];
-                meshWeights[currentMesh] = new int[meshesDataCount[currentMesh]];
+                meshVertices[i] = new Vector3[meshesDataCount[i]];
+                meshNormals[i] = new Vector3[meshesDataCount[i]];
+                meshFlexesX[i] = new float[meshesDataCount[i], 4];
+                meshFlexesY[i] = new float[meshesDataCount[i], 4];
+                meshWeights[i] = new int[meshesDataCount[i]];
                 int num44 = -1;
                 int num45 = -1;
                 int num46 = -1;
@@ -742,8 +778,8 @@ namespace XBC2ModelDecomp
                 int num48 = -1;
                 int num49 = 0;
                 int[] meshUVSomething = new int[4];
-                memoryStream.Seek((long)array13[currentMesh], SeekOrigin.Begin);
-                for (int j = 0; j < array14[currentMesh]; j++)
+                memoryStream.Seek((long)meshesDescOffset[i], SeekOrigin.Begin);
+                for (int j = 0; j < meshesDescCount[i]; j++)
                 {
                     int num50 = (int)binaryReader.ReadInt16();
                     int num51 = (int)binaryReader.ReadInt16();
@@ -757,18 +793,18 @@ namespace XBC2ModelDecomp
                     }
                     else if (num50 == 5)
                     {
-                        meshUVSomething[meshUVLayers[currentMesh]] = num49;
-                        meshUVLayers[currentMesh]++;
+                        meshUVSomething[meshUVLayers[i]] = num49;
+                        meshUVLayers[i]++;
                     }
                     else if (num50 == 6)
                     {
-                        meshUVSomething[meshUVLayers[currentMesh]] = num49;
-                        meshUVLayers[currentMesh]++;
+                        meshUVSomething[meshUVLayers[i]] = num49;
+                        meshUVLayers[i]++;
                     }
                     else if (num50 == 7)
                     {
-                        meshUVSomething[meshUVLayers[currentMesh]] = num49;
-                        meshUVLayers[currentMesh]++;
+                        meshUVSomething[meshUVLayers[i]] = num49;
+                        meshUVLayers[i]++;
                     }
                     else if (num50 == 28)
                     {
@@ -784,48 +820,48 @@ namespace XBC2ModelDecomp
                     }
                     num49 += num51;
                 }
-                for (int j = 0; j < meshesDataCount[currentMesh]; j++)
+                for (int j = 0; j < meshesDataCount[i]; j++)
                 {
                     if (num44 >= 0)
                     {
                         //if (j == 0)
                         //    Console.WriteLine($"POINTER: {meshesPointers[currentMesh]}\nJ: {j}\nARRAY12: {array12[currentMesh]}\nNUM44: {num44}");
-                        memoryStream.Seek((long)(meshesPointers[currentMesh] + j * array12[currentMesh] + num44), SeekOrigin.Begin);
+                        memoryStream.Seek((long)(meshesDataOffset[i] + j * meshesBlockSize[i] + num44), SeekOrigin.Begin);
                         //if (currentMesh == 0)
                         //    Console.WriteLine($"Setting mesh's vertices! At offset 0x{memoryStream.Position.ToString("X")}");
-                        meshVertices[currentMesh][j] = new Vector3(binaryReader.ReadSingle(), binaryReader.ReadSingle(), binaryReader.ReadSingle());
-                        meshNormals[currentMesh][j] = new Vector3(0f, 0f, 0f);
+                        meshVertices[i][j] = new Vector3(binaryReader.ReadSingle(), binaryReader.ReadSingle(), binaryReader.ReadSingle());
+                        meshNormals[i][j] = new Vector3(0f, 0f, 0f);
                     }
                     if (num46 >= 0)
                     {
-                        memoryStream.Seek((long)(meshesPointers[currentMesh] + j * array12[currentMesh] + num46), SeekOrigin.Begin);
+                        memoryStream.Seek((long)(meshesDataOffset[i] + j * meshesBlockSize[i] + num46), SeekOrigin.Begin);
                         //if (currentMesh == 0)
                         //    Console.WriteLine($"Setting mesh's weights! At offset 0x{memoryStream.Position.ToString("X")}");
-                        meshWeights[currentMesh][j] = binaryReader.ReadInt32();
+                        meshWeights[i][j] = binaryReader.ReadInt32();
                     }
 
-                    for (int k = 0; k < meshUVLayers[currentMesh]; k++)
+                    for (int k = 0; k < meshUVLayers[i]; k++)
                     {
-                        memoryStream.Seek((long)(meshesPointers[currentMesh] + j * array12[currentMesh] + meshUVSomething[k]), SeekOrigin.Begin);
+                        memoryStream.Seek((long)(meshesDataOffset[i] + j * meshesBlockSize[i] + meshUVSomething[k]), SeekOrigin.Begin);
                         //if (currentMesh == 0 && k == 0)
                         //    Console.WriteLine($"Setting mesh's flexes! At offset 0x{memoryStream.Position.ToString("X")}");
-                        meshFlexesX[currentMesh][j, k] = binaryReader.ReadSingle();
-                        meshFlexesY[currentMesh][j, k] = binaryReader.ReadSingle();
+                        meshFlexesX[i][j, k] = binaryReader.ReadSingle();
+                        meshFlexesY[i][j, k] = binaryReader.ReadSingle();
                     }
 
                     if (num45 >= 0)
                     {
-                        memoryStream.Seek((long)(meshesPointers[currentMesh] + j * array12[currentMesh] + num45), SeekOrigin.Begin);
+                        memoryStream.Seek((long)(meshesDataOffset[i] + j * meshesBlockSize[i] + num45), SeekOrigin.Begin);
                         //if (currentMesh == 0)
                         //    Console.WriteLine($"Setting mesh's normals! At offset 0x{memoryStream.Position.ToString("X")}");
                         float num40 = (float)binaryReader.ReadSByte() / 128f;
                         float num41 = (float)binaryReader.ReadSByte() / 128f;
                         float num42 = (float)binaryReader.ReadSByte() / 128f;
-                        meshNormals[currentMesh][j] = new Vector3(num40, num41, num42);
+                        meshNormals[i][j] = new Vector3(num40, num41, num42);
                     }
                     if (num48 >= 0)
                     {
-                        memoryStream.Seek((long)(meshesPointers[currentMesh] + j * array12[currentMesh] + num48), SeekOrigin.Begin);
+                        memoryStream.Seek((long)(meshesDataOffset[i] + j * meshesBlockSize[i] + num48), SeekOrigin.Begin);
                         //if (currentMesh == 0)
                         //    Console.WriteLine($"Setting mesh's weight ids! At offset 0x{memoryStream.Position.ToString("X")}");
                         try
@@ -849,7 +885,7 @@ namespace XBC2ModelDecomp
                     }
                     if (num47 >= 0)
                     {
-                        memoryStream.Seek((long)(meshesPointers[currentMesh] + j * array12[currentMesh] + num47), SeekOrigin.Begin);
+                        memoryStream.Seek((long)(meshesDataOffset[i] + j * meshesBlockSize[i] + num47), SeekOrigin.Begin);
                         //if (currentMesh == 0)
                         //    Console.WriteLine($"Setting mesh's weight values! At offset 0x{memoryStream.Position.ToString("X")}");
                         meshWeightValues[j, 0] = (float)binaryReader.ReadUInt16() / 65535f;
@@ -860,16 +896,16 @@ namespace XBC2ModelDecomp
                 }
             }
 
-            Vector3[][] array42 = new Vector3[num19][];
-            if (num16 > 0)
+            Vector3[][] array42 = new Vector3[MorphDataCount][];
+            if (Mesh.MorphDataOffset > 0)
             {
-                for (i = 0; i < num19; i++)
+                for (int i = 0; i < MorphDataCount; i++)
                 {
-                    array10[array6[i]] = i + 1;
-                    memoryStream.Seek((long)(num20 + array7[i] * 16), SeekOrigin.Begin);
-                    int num52 = meshDataStart + binaryReader.ReadInt32();
+                    array10[MorphWeightUnknown[i]] = i + 1;
+                    memoryStream.Seek((long)(MorphDataOffset2 + MorphWeightOffset[i] * 16), SeekOrigin.Begin);
+                    int num52 = Mesh.DataOffset + binaryReader.ReadInt32();
                     int num53 = binaryReader.ReadInt32();
-                    if (num53 != meshesDataCount[array6[i]])
+                    if (num53 != meshesDataCount[MorphWeightUnknown[i]])
                     {
                         Console.WriteLine("Flex vertices count is incorrect!");
                     }
@@ -877,30 +913,30 @@ namespace XBC2ModelDecomp
                     for (int j = 0; j < num53; j++)
                     {
                         memoryStream.Seek((long)(num52 + j * 32), SeekOrigin.Begin);
-                        meshVertices[array6[i]][j] = new Vector3(binaryReader.ReadSingle(), binaryReader.ReadSingle(), binaryReader.ReadSingle());
-                        meshNormals[array6[i]][j] = new Vector3(0f, 0f, 0f);
+                        meshVertices[MorphWeightUnknown[i]][j] = new Vector3(binaryReader.ReadSingle(), binaryReader.ReadSingle(), binaryReader.ReadSingle());
+                        meshNormals[MorphWeightUnknown[i]][j] = new Vector3(0f, 0f, 0f);
                     }
                 }
             }
 
             //total mesh count
             int flexAndMeshCount = 0;
-            for (i = 0; i < MeshesTableCount; i++)
+            for (int i = 0; i < MeshesTableCount; i++)
             {
                 if (meshVertexCount[i] < 2)
                 {
                     flexAndMeshCount++;
-                    if (array29[i] != 0 && App.ExportFlexes)
+                    if (meshFlexCount[i] != 0 && App.ExportFlexes)
                     {
-                        flexAndMeshCount += array8[0];
+                        flexAndMeshCount += MorphWeightCount[0];
                     }
                 }
             }
             asciiWriter.WriteLine(flexAndMeshCount);
             int num55 = 1;
-            if (num16 > 0 && App.ExportFlexes)
+            if (Mesh.MorphDataOffset > 0 && App.ExportFlexes)
             {
-                num55 += array8[0];
+                num55 += MorphWeightCount[0];
             }
 
             //write it
@@ -908,14 +944,14 @@ namespace XBC2ModelDecomp
             {
                 if (flexIndex > 0)
                 {
-                    for (i = 0; i < num19; i++)
+                    for (int i = 0; i < MorphDataCount; i++)
                     {
                         for (int j = 0; j < array42[i].Length; j++)
                         {
                             array42[i][j] = new Vector3();
                         }
-                        memoryStream.Seek((long)(num20 + (array7[i] + 1 + flexIndex) * 16), SeekOrigin.Begin);
-                        int num56 = meshDataStart + binaryReader.ReadInt32();
+                        memoryStream.Seek((long)(MorphDataOffset2 + (MorphWeightOffset[i] + 1 + flexIndex) * 16), SeekOrigin.Begin);
+                        int num56 = Mesh.DataOffset + binaryReader.ReadInt32();
                         int num57 = binaryReader.ReadInt32();
                         for (int j = 0; j < num57; j++)
                         {
@@ -927,15 +963,15 @@ namespace XBC2ModelDecomp
                         }
                     }
                 }
-                for (i = 0; i < MeshesTableCount; i++)
+                for (int i = 0; i < MeshesTableCount; i++)
                 {
                     if (meshVertexCount[i] <= 1)
                     {
                         int curMesh = MeshesUVFaces[i];
                         int curMeshIndex = MeshesVertexBuffer[i];
-                        if (array29[i] != 0 || flexIndex <= 0)
+                        if (meshFlexCount[i] != 0 || flexIndex <= 0)
                         {
-                            memoryStream.Seek((long)meshesDataStart[curMesh], SeekOrigin.Begin);
+                            memoryStream.Seek((long)meshesVertexDataStart[curMesh], SeekOrigin.Begin);
                             int[] array43 = new int[meshesVertexCount[curMesh]];
                             int curMeshVertCount = 0;
                             int prvMeshVertCount = meshesDataCount[curMeshIndex];
@@ -965,23 +1001,14 @@ namespace XBC2ModelDecomp
                             asciiWriter.WriteLine(curMeshVertCount - prvMeshVertCount + 1); //vertex count
                             for (int vrtIndex = prvMeshVertCount; vrtIndex <= curMeshVertCount; vrtIndex++)
                             {
+                                //vertex position
+                                Vector3 vertexPos = meshVertices[curMeshIndex][vrtIndex];
                                 if (flexIndex > 0)
-                                {
-                                    //vertex position
-                                    Vector3 Vector3 = meshVertices[curMeshIndex][vrtIndex] + array42[array10[curMeshIndex] - 1][vrtIndex];
-                                    asciiWriter.Write(Vector3.X.ToString("0.######"));
-                                    asciiWriter.Write(" " + Vector3.Y.ToString("0.######"));
-                                    asciiWriter.Write(" " + Vector3.Z.ToString("0.######"));
-                                    asciiWriter.WriteLine();
-                                }
-                                else
-                                {
-                                    //vertex position
-                                    asciiWriter.Write(meshVertices[curMeshIndex][vrtIndex].X.ToString("0.######"));
-                                    asciiWriter.Write(" " + meshVertices[curMeshIndex][vrtIndex].Y.ToString("0.######"));
-                                    asciiWriter.Write(" " + meshVertices[curMeshIndex][vrtIndex].Z.ToString("0.######"));
-                                    asciiWriter.WriteLine();
-                                }
+                                    vertexPos += array42[array10[curMeshIndex] - 1][vrtIndex];
+                                asciiWriter.Write(vertexPos.X.ToString("0.######"));
+                                asciiWriter.Write(" " + vertexPos.Y.ToString("0.######"));
+                                asciiWriter.Write(" " + vertexPos.Z.ToString("0.######"));
+                                asciiWriter.WriteLine();
 
                                 //vertex normal
                                 asciiWriter.Write(meshNormals[curMeshIndex][vrtIndex].X.ToString("0.######"));
@@ -1024,6 +1051,7 @@ namespace XBC2ModelDecomp
                 }
             }
 
+            App.PushLog("Writing .ascii file...");
             asciiWriter.Flush();
             asciiWriter.Dispose();
             GC.Collect();
