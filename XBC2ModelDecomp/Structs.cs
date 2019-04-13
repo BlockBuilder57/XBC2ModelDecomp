@@ -108,6 +108,10 @@ namespace XBC2ModelDecomp
 
             public MeshVertexTable[] VertexTables;
             public MeshFaceTable[] FaceTables;
+
+            public byte[] Reserved3; //0x30 long
+
+            public List<MeshVertexDescriptor> VertexDescriptors;
         }
 
         public struct MeshVertexTable
@@ -120,6 +124,8 @@ namespace XBC2ModelDecomp
             public int DescCount;
 
             public byte[] Unknown1; //0xC long
+
+            public MeshVertexDescriptor[] Descriptors; //not in struct
         }
 
         public struct MeshFaceTable
@@ -127,7 +133,13 @@ namespace XBC2ModelDecomp
             public int Offset;
             public int Count;
 
-            public byte[] Unknown1;
+            public byte[] Unknown1; //0xC long
+        }
+
+        public struct MeshVertexDescriptor
+        {
+            public short Type;
+            public short Size;
         }
 
 
