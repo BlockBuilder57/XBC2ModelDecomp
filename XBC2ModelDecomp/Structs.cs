@@ -98,11 +98,11 @@ namespace XBC2ModelDecomp
             public int UnknownOffset2;
             public int UnknownOffset2Count;
 
-            public int MorphDataOffset;
+            public int KindaMorphDataOffset;
             public int DataSize;
             public int DataOffset;
             public int ExtraDataVoxOffset;
-            public int ExtraDataPointer;
+            public int ExtraDataOffset;
 
             public byte[] Reserved2; //0x14 long
 
@@ -112,6 +112,8 @@ namespace XBC2ModelDecomp
             public byte[] Reserved3; //0x30 long
 
             public List<MeshVertexDescriptor> VertexDescriptors;
+
+            public MeshMorphData MorphData;
         }
 
         public struct MeshVertexTable
@@ -126,6 +128,8 @@ namespace XBC2ModelDecomp
             public byte[] Unknown1; //0xC long
 
             public MeshVertexDescriptor[] Descriptors; //not in struct
+
+            public MeshWeightManager WeightManager;
         }
 
         public struct MeshFaceTable
@@ -140,6 +144,30 @@ namespace XBC2ModelDecomp
         {
             public short Type;
             public short Size;
+        }
+
+        public struct MeshMorphData
+        {
+            public int WeightManagerCount;
+            public int WeightManagerOffset;
+
+            public short Unknown1;
+            public short Unknown2;
+
+            public int Offset02;
+
+            public MeshWeightManager[] WeightManagers;
+        }
+
+        public struct MeshWeightManager
+        {
+            public int Unknown1;
+            public int Offset;
+            public int Count;
+
+            public byte[] Unknown2; //0x11 long
+            public byte LOD;
+            public byte[] Unknown3; //0xA long
         }
 
 

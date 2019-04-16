@@ -547,11 +547,11 @@ namespace XBC2ModelDecomp
                 UnknownOffset2 = brMesh.ReadInt32(),
                 UnknownOffset2Count = brMesh.ReadInt32(),
 
-                MorphDataOffset = brMesh.ReadInt32(),
+                KindaMorphDataOffset = brMesh.ReadInt32(),
                 DataSize = brMesh.ReadInt32(),
                 DataOffset = brMesh.ReadInt32(),
                 ExtraDataVoxOffset = brMesh.ReadInt32(),
-                ExtraDataPointer = brMesh.ReadInt32(),
+                ExtraDataOffset = brMesh.ReadInt32(),
 
                 Reserved2 = brMesh.ReadBytes(0x14)
             };
@@ -599,6 +599,35 @@ namespace XBC2ModelDecomp
                 };
             }
 
+            sMesh.Seek(Mesh.ExtraDataOffset, SeekOrigin.Begin);
+            Mesh.MorphData = new Structs.MeshMorphData
+            {
+                WeightManagerCount = brMesh.ReadInt32(),
+                WeightManagerOffset = brMesh.ReadInt32(),
+
+                Unknown1 = brMesh.ReadInt16(),
+                Unknown2 = brMesh.ReadInt16(),
+
+                Offset02 = brMesh.ReadInt32()
+            };
+
+            App.PushLog(Mesh.MorphData.WeightManagerOffset.ToString("X"));
+            Mesh.MorphData.WeightManagers = new Structs.MeshWeightManager[Mesh.MorphData.WeightManagerCount];
+            sMesh.Seek(Mesh.MorphData.WeightManagerOffset, SeekOrigin.Begin);
+            for (int i = 0; i < Mesh.MorphData.WeightManagerCount; i++)
+            {
+                Mesh.MorphData.WeightManagers[i] = new Structs.MeshWeightManager
+                {
+                    Unknown1 = brMesh.ReadInt32(),
+                    Offset = brMesh.ReadInt32(),
+                    Count = brMesh.ReadInt32(),
+
+                    Unknown2 = brMesh.ReadBytes(0x11),
+                    LOD = brMesh.ReadByte(),
+                    Unknown3 = brMesh.ReadBytes(0xA)
+                };
+            }
+
             return Mesh;
         }
 
@@ -606,37 +635,10 @@ namespace XBC2ModelDecomp
         {
             Structs.Mesh Mesh = ReadMesh(memoryStream, binaryReader);
 
-            int MorphDataCount = 0;
-            int MorphDataOffset2 = 0;
-            int[] MorphWeightUnknown = null;
-            int[] MorphWeightOffset = null;
-            int[] MorphWeightCount = null;
-            if (Mesh.MorphDataOffset > 0) //flex related?
-            {
-                memoryStream.Seek(Mesh.MorphDataOffset, SeekOrigin.Begin);
-                MorphDataCount = binaryReader.ReadInt32();
-                int MorphDataOffset1 = binaryReader.ReadInt32();
-                binaryReader.ReadInt32();
-                MorphDataOffset2 = binaryReader.ReadInt32();
-                memoryStream.Seek(MorphDataOffset1, SeekOrigin.Begin);
-                MorphWeightUnknown = new int[MorphDataCount];
-                MorphWeightOffset = new int[MorphDataCount];
-                MorphWeightCount = new int[MorphDataCount];
-                for (int i = 0; i < MorphDataCount; i++)
-                {
-                    MorphWeightUnknown[i] = binaryReader.ReadInt32();
-                    MorphWeightOffset[i] = binaryReader.ReadInt32();
-                    MorphWeightCount[i] = binaryReader.ReadInt32();
-                    binaryReader.ReadInt32();
-                    binaryReader.ReadInt32();
-                }
-            }
-
             if (!File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo"))
                 return;
             if (!File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc"))
                 return;
-
 
             FileStream fsWIMDO = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo", FileMode.Open, FileAccess.Read);
             BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
@@ -730,10 +732,8 @@ namespace XBC2ModelDecomp
                 asciiWriter.WriteLine();
             }
 
-            memoryStream.Seek(Mesh.ExtraDataPointer + 0x8, SeekOrigin.Begin);
-            int meshWeightBoneCount = binaryReader.ReadInt16(); //4
-            int[,] meshWeightIds = new int[Mesh.VertexTables[meshWeightBoneCount].DataCount, 4];
-            float[,] meshWeightValues = new float[Mesh.VertexTables[meshWeightBoneCount].DataCount, 4];
+            int[,] meshWeightIds = new int[Mesh.VertexTables[Mesh.MorphData.Unknown1].DataCount, 4];
+            float[,] meshWeightValues = new float[Mesh.VertexTables[Mesh.MorphData.Unknown1].DataCount, 4];
             Vector3[][] meshVertices = new Vector3[Mesh.VertexTableCount][];
             Vector3[][] meshNormals = new Vector3[Mesh.VertexTableCount][];
             float[][,] meshUVLayerPosX = new float[Mesh.VertexTableCount][,];
@@ -816,8 +816,6 @@ namespace XBC2ModelDecomp
                     if (meshWeightValuesOffset >= 0)
                     {
                         memoryStream.Seek(Mesh.DataOffset + Mesh.VertexTables[i].DataOffset + j * Mesh.VertexTables[i].BlockSize + meshWeightValuesOffset, SeekOrigin.Begin);
-                        //if (currentMesh == 0)
-                        //    Console.WriteLine($"Setting mesh's weight values! At offset 0x{memoryStream.Position.ToString("X")}");
                         meshWeightValues[j, 0] = (float)binaryReader.ReadUInt16() / 65535f;
                         meshWeightValues[j, 1] = (float)binaryReader.ReadUInt16() / 65535f;
                         meshWeightValues[j, 2] = (float)binaryReader.ReadUInt16() / 65535f;
@@ -840,17 +838,39 @@ namespace XBC2ModelDecomp
                             meshWeightIds[j, 2] = 0;
                             meshWeightIds[j, 3] = 0;
                         }
-                        App.PushLog(meshWeightIds[j, 0]);
-                        App.PushLog(meshWeightIds[j, 1]);
-                        App.PushLog(meshWeightIds[j, 2]);
-                        App.PushLog(meshWeightIds[j, 3]);
                     }
+                }
+            }
+
+            int MorphDataCount = 0;
+            int MorphDataOffset2 = 0;
+            int[] MorphWeightUnknown = null;
+            int[] MorphWeightOffset = null;
+            int[] MorphWeightCount = null;
+            if (Mesh.KindaMorphDataOffset > 0) //flex related?
+            {
+                memoryStream.Seek(Mesh.KindaMorphDataOffset, SeekOrigin.Begin);
+                MorphDataCount = binaryReader.ReadInt32();
+                int MorphDataOffset1 = binaryReader.ReadInt32();
+                binaryReader.ReadInt32();
+                MorphDataOffset2 = binaryReader.ReadInt32();
+                memoryStream.Seek(MorphDataOffset1, SeekOrigin.Begin);
+                MorphWeightUnknown = new int[MorphDataCount];
+                MorphWeightOffset = new int[MorphDataCount];
+                MorphWeightCount = new int[MorphDataCount];
+                for (int i = 0; i < MorphDataCount; i++)
+                {
+                    MorphWeightUnknown[i] = binaryReader.ReadInt32();
+                    MorphWeightOffset[i] = binaryReader.ReadInt32();
+                    MorphWeightCount[i] = binaryReader.ReadInt32();
+                    binaryReader.ReadInt32();
+                    binaryReader.ReadInt32();
                 }
             }
 
             int[] array10 = new int[Mesh.VertexTableCount];
             Vector3[][] array42 = new Vector3[MorphDataCount][];
-            if (Mesh.MorphDataOffset > 0)
+            if (Mesh.KindaMorphDataOffset > 0)
             {
                 for (int i = 0; i < MorphDataCount; i++)
                 {
@@ -887,7 +907,7 @@ namespace XBC2ModelDecomp
             }
             asciiWriter.WriteLine(flexAndMeshCount);
             int num55 = 1;
-            if (Mesh.MorphDataOffset > 0 && App.ExportFlexes)
+            if (Mesh.KindaMorphDataOffset > 0 && App.ExportFlexes)
             {
                 num55 += MorphWeightCount[0];
             }
@@ -899,9 +919,9 @@ namespace XBC2ModelDecomp
                 {
                     for (int j = 0; j < MorphDataCount; j++)
                     {
-                        for (int k = 0; k < array42[k].Length; k++)
+                        for (int k = 0; k < array42[j].Length; k++)
                         {
-                            array42[k][k] = new Vector3();
+                            array42[j][k] = new Vector3();
                         }
                         memoryStream.Seek((long)(MorphDataOffset2 + (MorphWeightOffset[j] + 1 + i) * 16), SeekOrigin.Begin);
                         int num56 = Mesh.DataOffset + binaryReader.ReadInt32();
@@ -912,7 +932,7 @@ namespace XBC2ModelDecomp
                             Vector3 Vector3 = new Vector3(binaryReader.ReadSingle(), binaryReader.ReadSingle(), binaryReader.ReadSingle());
                             memoryStream.Seek(16L, SeekOrigin.Current);
                             int num58 = binaryReader.ReadInt32();
-                            array42[k][num58] = Vector3;
+                            array42[j][num58] = Vector3;
                         }
                     }
                 }
