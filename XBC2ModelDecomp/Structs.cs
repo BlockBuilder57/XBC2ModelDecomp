@@ -5,6 +5,7 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Media;
 
 namespace XBC2ModelDecomp
 {
@@ -129,15 +130,26 @@ namespace XBC2ModelDecomp
 
             public MeshVertexDescriptor[] Descriptors; //not in struct
 
-            public MeshWeightManager WeightManager;
+            //these are right after the actual vertex struct, but not in this order
+            public Vector3[] Vertices;
+            public int[] Weights;
+            public float[,] UVPosX;
+            public float[,] UVPosY;
+            public int UVLayerCount;
+            public Color[] VertexColor;
+            public Quaternion[] Normals;
+            public float[,] WeightValues;
+            public byte[,] WeightIds;
         }
 
         public struct MeshFaceTable
         {
             public int Offset;
-            public int Count;
+            public int VertCount;
 
             public byte[] Unknown1; //0xC long
+
+            public ushort[] Vertices; //not in struct
         }
 
         public struct MeshVertexDescriptor
@@ -151,12 +163,22 @@ namespace XBC2ModelDecomp
             public int WeightManagerCount;
             public int WeightManagerOffset;
 
-            public short Unknown1;
+            public short VertexTableIndex;
             public short Unknown2;
 
             public int Offset02;
 
             public MeshWeightManager[] WeightManagers;
+
+            public int MorphDescriptorsCount;
+            public int MorphDescriptorsOffset;
+
+            public MeshMorphDescriptor[] MorphDescriptors;
+
+            public int MorphTargetsCount;
+            public int MorphTargetsOffset;
+
+            public MeshMorphTarget[] MorphTargets;
         }
 
         public struct MeshWeightManager
@@ -168,6 +190,27 @@ namespace XBC2ModelDecomp
             public byte[] Unknown2; //0x11 long
             public byte LOD;
             public byte[] Unknown3; //0xA long
+        }
+
+        public struct MeshMorphDescriptor
+        {
+            public int BufferID;
+
+            public int TargetOffset;
+            public int TargetCounts;
+            public int TargetIDOffsets;
+
+            public int Unknown1;
+        }
+
+        public struct MeshMorphTarget
+        {
+            public int BufferOffset;
+            public int VertCount;
+            public int BlockSize;
+
+            public short Unknown1;
+            public short Type;
         }
 
 
@@ -190,6 +233,9 @@ namespace XBC2ModelDecomp
             public byte[] Unknown3; //0x28 long
 
             public MXMDModelStruct ModelStruct;
+
+            public MXMDMaterialHeader MaterialHeader;
+            public MXMDMaterial[] Materials;
         }
 
         public struct MXMDModelStruct
@@ -276,8 +322,8 @@ namespace XBC2ModelDecomp
             public int Descriptor;
             public int WeightBind; //not in struct
 
-            public short VTBuffer;
-            public short UVFaces;
+            public short VertTableIndex;
+            public short FaceTableIndex;
 
             public short Unknown1;
             public short MaterialID;
@@ -318,6 +364,20 @@ namespace XBC2ModelDecomp
             public Quaternion Position;
 
             public Quaternion ParentTransform;
+        }
+
+        public struct MXMDMaterialHeader
+        {
+            public int Offset;
+            public int Count;
+        }
+
+        public struct MXMDMaterial
+        {
+            public int NameOffset;
+            public byte[] Unknown1; //0x70 long oh no
+
+            public string Name; //not in struct
         }
 
 
