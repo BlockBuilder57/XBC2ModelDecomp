@@ -58,13 +58,13 @@ namespace XBC2ModelDecomp
                 for (int i = 0; i < App.FilePaths.Length; i++)
                     App.OutputPaths[i] = App.FilePaths[i].Remove(App.FilePaths[i].LastIndexOf('.'));
 
-                txtOutput.Text = string.Join(", ", App.OutputPaths);
-                txtInput.Text = string.Join(", ", App.FilePaths);
+                EXtxtOutput.Text = string.Join(", ", App.OutputPaths);
+                EXtxtInput.Text = string.Join(", ", App.FilePaths);
 
-                txtOutput.CaretIndex = txtOutput.Text.Length;
-                txtOutput.ScrollToHorizontalOffset(txtOutput.GetRectFromCharacterIndex(txtOutput.CaretIndex).Right);
-                txtInput.CaretIndex = txtInput.Text.Length;
-                txtInput.ScrollToHorizontalOffset(txtInput.GetRectFromCharacterIndex(txtInput.CaretIndex).Right);
+                EXtxtOutput.CaretIndex = EXtxtOutput.Text.Length;
+                EXtxtOutput.ScrollToHorizontalOffset(EXtxtOutput.GetRectFromCharacterIndex(EXtxtOutput.CaretIndex).Right);
+                EXtxtInput.CaretIndex = EXtxtInput.Text.Length;
+                EXtxtInput.ScrollToHorizontalOffset(EXtxtInput.GetRectFromCharacterIndex(EXtxtInput.CaretIndex).Right);
             }
         }
 
@@ -80,19 +80,20 @@ namespace XBC2ModelDecomp
             {
                 for (int i = 0; i < App.OutputPaths.Length; i++)
                     App.OutputPaths[i] = fbd.SelectedPath + $@"\{Path.GetFileNameWithoutExtension(App.FilePaths[i])}";
-                txtOutput.Text = fbd.SelectedPath;
+                EXtxtOutput.Text = fbd.SelectedPath;
             }
         }
 
-        private void DecompileFile(object sender, RoutedEventArgs e)
+        private void ExtractFile(object sender, RoutedEventArgs e)
         {
             if (App.FilePaths == null || App.FilePaths.Length == 0)
                 return;
-            App.ExportTextures = cbxTextures.IsChecked.Value;
-            App.ExportFlexes = cbxFlexes.IsChecked.Value;
-            App.ExportAnims = cbxAnims.IsChecked.Value;
-            App.SaveRawFiles = cbxRawFiles.IsChecked.Value;
+            App.ExportTextures = EXcbxTextures.IsChecked.Value;
+            App.ExportFlexes = EXcbxFlexes.IsChecked.Value;
+            App.ExportAnims = EXcbxAnims.IsChecked.Value;
+            App.SaveRawFiles = EXcbxRawFiles.IsChecked.Value;
 
+            tabConsole.Focus();
             txtConsole.Text = "";
             App.PushLog($"Extracting {App.FilePaths.Length} file(s)...");
 

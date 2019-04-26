@@ -5,39 +5,52 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:XBC2ModelDecomp"
         mc:Ignorable="d"
-        Title="Xenoblade 2 Model Decompilier" Height="440" Width="550" ResizeMode="CanMinimize">
+        Title="Xenoblade 2 Model Decompilier" Height="270" Width="550" ResizeMode="CanMinimize">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="460"/>
-            <ColumnDefinition Width="90"/>
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="60"/>
-            <RowDefinition Height="50"/>
-            <RowDefinition Height="50"/>
-            <RowDefinition Height="30"/>
-            <RowDefinition Height="auto"/>
-        </Grid.RowDefinitions>
-
         <Label Content="Xenoblade 2 Model Decompilier" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="0" Margin="10,5,0,0" Height="28" Width="520" FontSize="18" FontWeight="Bold" Grid.ColumnSpan="2"/>
-        <Label Content="Decompiles model assets inside the files of Xenoblade 2." HorizontalAlignment="Left" VerticalAlignment="Top" Padding="0" Margin="10,30,0,0" Height="18" Width="520" FontSize="12" Grid.ColumnSpan="2"/>
-        <Rectangle HorizontalAlignment="Left" Height="1" Margin="0,53,0,0" Stroke="Black" VerticalAlignment="Top" Width="550" Grid.ColumnSpan="2" />
+        <Label Content="Manipulates model assets inside the files of Xenoblade 2." HorizontalAlignment="Left" VerticalAlignment="Top" Padding="0" Margin="10,30,0,0" Height="18" Width="520" FontSize="12" Grid.ColumnSpan="2"/>
 
-        <Label Content="Input File(s):" Grid.Column="0" Grid.Row="1" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Top" Height="18" Width="65" Padding="0"/>
-        <TextBox x:Name="txtInput" Grid.Column="0" Grid.Row="1" HorizontalAlignment="Left" Height="20" Margin="10,23,0,0" MaxLines="1" VerticalAlignment="Top" Width="440" IsReadOnly="True" IsReadOnlyCaretVisible="True"/>
-        <Button x:Name="btnInput" Content="Browse..." Grid.Column="1" Grid.Row="1" HorizontalAlignment="Left" Margin="0,23,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="SelectFile"/>
+        <TabControl Margin="0,53,0,0" Grid.Row="0" Grid.ColumnSpan="2">
+            <TabItem x:Name="tabExtract" Header="Extract">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="460"/>
+                        <ColumnDefinition Width="90"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="50"/>
+                        <RowDefinition Height="50"/>
+                        <RowDefinition Height="45"/>
+                    </Grid.RowDefinitions>
 
-        <Label Content="Output Folder:" Grid.Column="0" Grid.Row="2" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Top" Height="18" Width="80" Padding="0"/>
-        <TextBox x:Name="txtOutput" Grid.Column="0" Grid.Row="2" HorizontalAlignment="Left" Height="20" Margin="10,23,0,0" MaxLines="1" VerticalAlignment="Top" Width="440" IsReadOnly="True"/>
-        <Button x:Name="btnOutput" Content="Browse..." Grid.Column="1" Grid.Row="2" HorizontalAlignment="Left" Margin="0,23,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="SelectOutputDir"/>
+                    <Label Content="Input File(s):" Grid.Column="0" Grid.Row="0" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Top" Height="18" Width="65" Padding="0"/>
+                    <TextBox x:Name="EXtxtInput" Grid.Column="0" Grid.Row="0" HorizontalAlignment="Left" Height="20" Margin="10,23,0,0" MaxLines="1" VerticalAlignment="Top" Width="440" IsReadOnly="True" IsReadOnlyCaretVisible="True"/>
+                    <Button x:Name="EXbtnInput" Content="Browse..." Grid.Column="1" Grid.Row="0" HorizontalAlignment="Left" Margin="0,23,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="SelectFile"/>
 
-        <CheckBox x:Name="cbxTextures" Content="Save textures" ToolTip="Textures will be saved to the Textures folder." IsChecked="True" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="3" VerticalAlignment="Top"/>
-        <CheckBox x:Name="cbxFlexes" Content="Save facial flexes" ToolTip="Facial flexes will be saved to the model file. This makes the file quite large in size!" HorizontalAlignment="Left" Margin="120,0,0,0" Grid.Row="3" VerticalAlignment="Top"/>
-        <CheckBox x:Name="cbxAnims" Content="Save animations" ToolTip="Animations will be saved to the Animations folder." HorizontalAlignment="Left" Margin="240,0,0,0" Grid.Row="3" VerticalAlignment="Top"/>
-        <CheckBox x:Name="cbxRawFiles" Content="Save raw files in containers" ToolTip="All raw files contained in the model's files will be extracted to the RawFiles folder." HorizontalAlignment="Left" Margin="10,15,0,0" Grid.Row="3" VerticalAlignment="Top"/>
-        <Button x:Name="btnDecomp" Content="Decompile" Grid.Column="1" Grid.Row="3" HorizontalAlignment="Left" Margin="0,6,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="DecompileFile"/>
+                    <Label Content="Output Folder:" Grid.Column="0" Grid.Row="1" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Top" Height="18" Width="80" Padding="0"/>
+                    <TextBox x:Name="EXtxtOutput" Grid.Column="0" Grid.Row="1" HorizontalAlignment="Left" Height="20" Margin="10,23,0,0" MaxLines="1" VerticalAlignment="Top" Width="440" IsReadOnly="True"/>
+                    <Button x:Name="EXbtnOutput" Content="Browse..." Grid.Column="1" Grid.Row="1" HorizontalAlignment="Left" Margin="0,23,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="SelectOutputDir"/>
 
-        <Label Content="Console Output:" Grid.Column="0" Grid.Row="4" HorizontalAlignment="Left" Margin="10,5,0,-5" VerticalAlignment="Top" Height="18" Width="100" Padding="0"/>
-        <TextBox x:Name="txtConsole" BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Left" Height="177" Margin="10,23,0,-184" Grid.Row="4" VerticalAlignment="Top" Width="515" Grid.ColumnSpan="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" UseLayoutRounding="False" AllowDrop="False" IsTabStop="False" IsReadOnly="True" IsUndoEnabled="False" TextWrapping="Wrap"/>
+                    <Label Content="Output Format:" Grid.Column="0" Grid.Row="2" HorizontalAlignment="Left" Margin="265,0,0,0" VerticalAlignment="Top" Height="15" Width="84" Padding="0"/>
+                    <CheckBox x:Name="EXcbxTextures" Content="Save textures" ToolTip="Textures will be saved to the Textures folder." IsChecked="True" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="2" VerticalAlignment="Top"/>
+                    <CheckBox x:Name="EXcbxAnims" Content="Save animations" ToolTip="Animations will be saved to the Animations folder." HorizontalAlignment="Left" Margin="110,0,0,0" Grid.Row="2" VerticalAlignment="Top"/>
+                    <CheckBox x:Name="EXcbxFlexes" Content="Save facial flexes to model file" ToolTip="Facial flexes will be saved to the model file. This makes the file quite large in size!" HorizontalAlignment="Left" Margin="10,15,0,0" Grid.Row="2" VerticalAlignment="Top"/>
+                    <CheckBox x:Name="EXcbxRawFiles" Content="Save raw files in containers" ToolTip="All raw files contained in the model's files will be extracted to the RawFiles folder." HorizontalAlignment="Left" Margin="10,30,0,0" Grid.Row="2" VerticalAlignment="Top"/>
+
+                    <ComboBox Grid.Column="0" Grid.Row="2" Margin="350,0,0,0" Width="100" Height="15" Padding="2,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">
+                        <ComboBoxItem Content="XNALara"/>
+                        <ComboBoxItem Content="glTF"/>
+                    </ComboBox>
+
+                    <Button x:Name="EXbtnExtract" Content="Extract" Grid.Column="1" Grid.Row="2" HorizontalAlignment="Left" Margin="0,6,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="ExtractFile"/>
+                </Grid>
+            </TabItem>
+            <TabItem x:Name="tabConsole" Header="Console">
+                <Grid>
+                    <Label Content="Console Output:" HorizontalAlignment="Left" Margin="10,5,0,-5" VerticalAlignment="Top" Height="18" Width="100" Padding="0"/>
+                    <TextBox x:Name="txtConsole" BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Left" Height="120" Margin="10,24,0,0" VerticalAlignment="Top" Width="509" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" UseLayoutRounding="False" AllowDrop="False" IsTabStop="False" IsReadOnly="True" IsUndoEnabled="False" TextWrapping="Wrap"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </Window>

@@ -11,6 +11,13 @@ namespace XBC2ModelDecomp
 {
     public class Structs
     {
+        public enum ModelFormat
+        {
+            XNALara,
+            glTF
+        }
+
+
         //wismt
         public struct MSRD
         {
