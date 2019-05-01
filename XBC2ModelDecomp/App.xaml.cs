@@ -28,6 +28,8 @@ namespace XBC2ModelDecomp
         public static bool ExportFlexes;
         public static bool ExportAnims;
         public static bool SaveRawFiles;
+        public static bool ExportOutlines;
+        public static int LOD;
 
         public delegate void Log(object logMessage);
         public static event Log LogEvent;

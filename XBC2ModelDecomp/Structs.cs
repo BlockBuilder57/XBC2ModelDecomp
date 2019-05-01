@@ -203,11 +203,13 @@ namespace XBC2ModelDecomp
         {
             public int BufferID;
 
-            public int TargetOffset;
+            public int TargetIndex;
             public int TargetCounts;
             public int TargetIDOffsets;
 
             public int Unknown1;
+
+            public short[] TargetIDs; //not in struct
         }
 
         public struct MeshMorphTarget
@@ -218,6 +220,9 @@ namespace XBC2ModelDecomp
 
             public short Unknown1;
             public short Type;
+
+            public Vector3[] Vertices;
+            public Quaternion[] Normals;
         }
 
 

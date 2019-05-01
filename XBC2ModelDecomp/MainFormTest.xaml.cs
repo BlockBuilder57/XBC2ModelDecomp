@@ -84,6 +84,11 @@ namespace XBC2ModelDecomp
             }
         }
 
+        private void EXsldLOD_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            EXsldLOD.Value = (int)EXsldLOD.Value;
+        }
+
         private void ExtractFile(object sender, RoutedEventArgs e)
         {
             if (App.FilePaths == null || App.FilePaths.Length == 0)
@@ -91,7 +96,9 @@ namespace XBC2ModelDecomp
             App.ExportTextures = EXcbxTextures.IsChecked.Value;
             App.ExportFlexes = EXcbxFlexes.IsChecked.Value;
             App.ExportAnims = EXcbxAnims.IsChecked.Value;
+            App.ExportOutlines = EXcbxOutlines.IsChecked.Value;
             App.SaveRawFiles = EXcbxRawFiles.IsChecked.Value;
+            App.LOD = (int)EXsldLOD.Value;
 
             tabConsole.Focus();
             txtConsole.Text = "";
