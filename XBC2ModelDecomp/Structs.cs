@@ -106,11 +106,11 @@ namespace XBC2ModelDecomp
             public int UnknownOffset2;
             public int UnknownOffset2Count;
 
-            public int KindaMorphDataOffset;
+            public int MorphDataOffset;
             public int DataSize;
             public int DataOffset;
-            public int ExtraDataVoxOffset;
-            public int ExtraDataOffset;
+            public int WeightDataSize;
+            public int WeightDataOffset;
 
             public byte[] Reserved2; //0x14 long
 
@@ -121,6 +121,7 @@ namespace XBC2ModelDecomp
 
             public List<MeshVertexDescriptor> VertexDescriptors;
 
+            public MeshWeightData WeightData;
             public MeshMorphData MorphData;
         }
 
@@ -165,7 +166,7 @@ namespace XBC2ModelDecomp
             public short Size;
         }
 
-        public struct MeshMorphData
+        public struct MeshWeightData
         {
             public int WeightManagerCount;
             public int WeightManagerOffset;
@@ -176,16 +177,6 @@ namespace XBC2ModelDecomp
             public int Offset02;
 
             public MeshWeightManager[] WeightManagers;
-
-            public int MorphDescriptorsCount;
-            public int MorphDescriptorsOffset;
-
-            public MeshMorphDescriptor[] MorphDescriptors;
-
-            public int MorphTargetsCount;
-            public int MorphTargetsOffset;
-
-            public MeshMorphTarget[] MorphTargets;
         }
 
         public struct MeshWeightManager
@@ -197,6 +188,19 @@ namespace XBC2ModelDecomp
             public byte[] Unknown2; //0x11 long
             public byte LOD;
             public byte[] Unknown3; //0xA long
+        }
+
+        public struct MeshMorphData
+        {
+            public int MorphDescriptorsCount;
+            public int MorphDescriptorsOffset;
+
+            public MeshMorphDescriptor[] MorphDescriptors;
+
+            public int MorphTargetsCount;
+            public int MorphTargetsOffset;
+
+            public MeshMorphTarget[] MorphTargets;
         }
 
         public struct MeshMorphDescriptor
@@ -221,8 +225,8 @@ namespace XBC2ModelDecomp
             public short Unknown1;
             public short Type;
 
-            public Vector3[] Vertices;
-            public Quaternion[] Normals;
+            public Vector3[] Vertices; //not in struct
+            public Quaternion[] Normals; //not in struct
         }
 
 
