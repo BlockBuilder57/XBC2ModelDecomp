@@ -27,7 +27,7 @@ namespace XBC2ModelDecomp
                 {
                     for (int j = 1; j < SearchBytes.Length && ByteBuffer[i + j] == SearchBytes[j]; j++)
                     {
-                        if (j == SearchBytes.Length-1)
+                        if (j == SearchBytes.Length - 1)
                         {
                             Console.WriteLine($"String was found at offset {i}");
                             magicOccurences.Add(i);
@@ -37,10 +37,14 @@ namespace XBC2ModelDecomp
                 }
             }
 
+            Structs.WISMDA WISMDA = new Structs.WISMDA
+            {
+                Files = new Structs.XBC1[magicOccurences.Count]
+            };
+
             for (int i = 0; i < magicOccurences.Count; i++)
             {
-                MemoryStream ms = ft.ReadXBC1(fileStream, binaryReader, magicOccurences[i], $"{Path.GetFileNameWithoutExtension(App.CurFilePath)}_file{i}.bin", App.CurOutputPath + $"{Path.GetFileNameWithoutExtension(App.CurFilePath)}_xbc1files");
-                ms.Dispose();
+                WISMDA.Files[i] = ft.ReadXBC1(fileStream, binaryReader, magicOccurences[i], null, App.CurOutputPath + @"\RawFiles\");
             }
             fileStream.Dispose();
         }

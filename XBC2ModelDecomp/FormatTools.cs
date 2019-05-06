@@ -24,46 +24,63 @@ namespace XBC2ModelDecomp
             return text;
         }
 
-        public MemoryStream ReadXBC1(Stream sXBC1, BinaryReader brXBC1, int offset, string saveToFileName = "", string savetoFilePath = "")
+        public Structs.XBC1 ReadXBC1(Stream sXBC1, BinaryReader brXBC1, int offset, string saveToFileName = "", string savetoFilePath = "")
         {
             if (sXBC1 == null || brXBC1 == null || offset > sXBC1.Length || offset < 0)
-                return null;
+                return new Structs.XBC1 { Version = Int32.MaxValue };
+
             sXBC1.Seek(offset, SeekOrigin.Begin);
             int XBC1Magic = brXBC1.ReadInt32(); //nice meme
             if (XBC1Magic != 0x31636278)
             {
                 App.PushLog("XBC1 header invalid!");
-                return null;
+                return new Structs.XBC1 { Version = Int32.MaxValue };
             }
-            brXBC1.ReadInt32();
-            int outputFileSize = brXBC1.ReadInt32();
-            int compressedLength = brXBC1.ReadInt32();
-            brXBC1.ReadInt32();
 
-            //string fileInfo = ReadNullTerminatedString(binaryReader);
+            Structs.XBC1 XBC1 = new Structs.XBC1
+            {
+                Version = brXBC1.ReadInt32(),
+                FileSize = brXBC1.ReadInt32(),
+                CompressedSize = brXBC1.ReadInt32(),
+                Unknown1 = brXBC1.ReadInt32()
+            };
+
+            if (string.IsNullOrWhiteSpace(saveToFileName))
+                saveToFileName = ReadNullTerminatedString(brXBC1);
+            if (saveToFileName[1] == ':')
+                saveToFileName = saveToFileName.Substring(3);
+            else if (saveToFileName[0] == '/')
+                saveToFileName = saveToFileName.Substring(1);
+
+            savetoFilePath += $@"{string.Join("/", saveToFileName.Split('/').Reverse().Skip(1).Reverse())}";
+            saveToFileName = saveToFileName.Split('/').Last();
+            if (string.IsNullOrWhiteSpace(saveToFileName))
+                saveToFileName = $"0x{offset:X}";
 
             sXBC1.Seek(offset + 0x30, SeekOrigin.Begin);
-            byte[] fileBuffer = new byte[outputFileSize >= compressedLength ? outputFileSize : compressedLength];
+            byte[] fileBuffer = new byte[XBC1.FileSize >= XBC1.CompressedSize ? XBC1.FileSize : XBC1.CompressedSize];
 
             MemoryStream msFile = new MemoryStream();
-            sXBC1.Read(fileBuffer, 0, compressedLength);
+            sXBC1.Read(fileBuffer, 0, XBC1.CompressedSize);
 
             ZOutputStream ZOutFile = new ZOutputStream(msFile);
-            ZOutFile.Write(fileBuffer, 0, compressedLength);
+            ZOutFile.Write(fileBuffer, 0, XBC1.CompressedSize);
             ZOutFile.Flush();
 
-            if (App.SaveRawFiles && !string.IsNullOrWhiteSpace(saveToFileName))
+            if (App.SaveRawFiles && !string.IsNullOrWhiteSpace(saveToFileName) && !string.IsNullOrWhiteSpace(savetoFilePath))
             {
-                if (!string.IsNullOrWhiteSpace(savetoFilePath) && !Directory.Exists(savetoFilePath))
+                if (!Directory.Exists(savetoFilePath))
                     Directory.CreateDirectory(savetoFilePath);
-                FileStream outputter = new FileStream($@"{savetoFilePath}\{saveToFileName}", FileMode.OpenOrCreate);
+                FileStream outputter = new FileStream($@"{savetoFilePath}\{saveToFileName.Split('/').Last()}", FileMode.OpenOrCreate);
                 msFile.WriteTo(outputter);
                 outputter.Flush();
                 outputter.Close();
             }
 
             msFile.Seek(0L, SeekOrigin.Begin);
-            return msFile;
+            XBC1.Data = msFile;
+
+            return XBC1;
         }
 
         public Structs.SAR1 ReadSAR1(Stream sSAR1, BinaryReader brSAR1, string folderPath, bool folderConditional)
@@ -92,6 +109,8 @@ namespace XBC2ModelDecomp
             string safePath = App.CurOutputPath + folderPath;
             if (SAR1.Path[1] == ':')
                 safePath += SAR1.Path.Substring(3);
+            else if (SAR1.Path[0] == '/')
+                safePath += SAR1.Path.Substring(1);
             else
                 safePath += SAR1.Path;
 
@@ -308,7 +327,7 @@ namespace XBC2ModelDecomp
                 MSRD.TOC[curFileOffset].Offset = brMSRD.ReadInt32();
 
                 App.PushLog($"Decompressing file{curFileOffset} in MSRD...");
-                MSRD.TOC[curFileOffset].Data = ReadXBC1(sMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.CurOutputPath + @"\RawFiles");
+                MSRD.TOC[curFileOffset].Data = ReadXBC1(sMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.CurOutputPath + @"\RawFiles").Data;
             }
 
             return MSRD;
@@ -804,7 +823,10 @@ namespace XBC2ModelDecomp
             for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
             {
                 NodesIdsNames.Add(r, MXMD.ModelStruct.Nodes.Nodes[r].Name);
+                App.PushLog($"{r} - {MXMD.ModelStruct.Nodes.Nodes[r].Name}");
             }
+
+            App.PushLog($"\n");
             #endregion WIMDOReading
 
             #region ARCReading
@@ -831,6 +853,7 @@ namespace XBC2ModelDecomp
 
                 SKELNodeNames.Add(SKEL.Nodes[i].Name, i);
                 bone_names[i] = SKEL.Nodes[i].Name;
+                App.PushLog($"{i} - {SKEL.Nodes[i].Name}");
 
                 if (SKEL.Parents[i] < 0) //is root
                 {
@@ -860,7 +883,7 @@ namespace XBC2ModelDecomp
             asciiWriter.WriteLine(boneCount);
             for (int j = 0; j < boneCount; j++)
             {
-                asciiWriter.WriteLine(bone_names[j]);
+                asciiWriter.WriteLine(SKEL.Nodes[j].Name);
                 asciiWriter.WriteLine(SKEL.Parents[j]);
                 asciiWriter.Write(bonePos[j].X.ToString("0.######"));
                 asciiWriter.Write(" " + bonePos[j].Y.ToString("0.######"));
@@ -913,6 +936,7 @@ namespace XBC2ModelDecomp
 
             int lastMeshIdIdenticalCount = 0;
             bool lastMeshIdIdentical = false;
+            Structs.MeshVertexTable weightTbl = Mesh.VertexTables.Last();
             asciiWriter.WriteLine(ValidMeshes.Count);
             for (int i = 0; i < ValidMeshes.Count; i++)
             {
@@ -977,14 +1001,14 @@ namespace XBC2ModelDecomp
                             asciiWriter.WriteLine(vertTbl.UVPosX[vrtIndex, curUVLayer].ToString("F6") + " " + vertTbl.UVPosY[vrtIndex, curUVLayer].ToString("F6"));
 
                         //weight ids
-                        asciiWriter.Write(SKELNodeNames[NodesIdsNames[Mesh.VertexTables.Last().WeightIds[vertTbl.Weights[vrtIndex], 0]]] + " ");
-                        asciiWriter.Write(SKELNodeNames[NodesIdsNames[Mesh.VertexTables.Last().WeightIds[vertTbl.Weights[vrtIndex], 1]]] + " ");
-                        asciiWriter.Write(SKELNodeNames[NodesIdsNames[Mesh.VertexTables.Last().WeightIds[vertTbl.Weights[vrtIndex], 2]]] + " ");
-                        asciiWriter.Write(SKELNodeNames[NodesIdsNames[Mesh.VertexTables.Last().WeightIds[vertTbl.Weights[vrtIndex], 3]]]);
+                        asciiWriter.Write(SKELNodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 0]]] + " ");
+                        asciiWriter.Write(SKELNodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 1]]] + " ");
+                        asciiWriter.Write(SKELNodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 2]]] + " ");
+                        asciiWriter.Write(SKELNodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 3]]]);
                         asciiWriter.WriteLine();
 
                         //weight values
-                        asciiWriter.WriteLine(Mesh.VertexTables.Last().WeightValues[vertTbl.Weights[vrtIndex], 0].ToString("F6"));
+                        asciiWriter.WriteLine(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 0].ToString("F6"));
                     }
 
                     //face count

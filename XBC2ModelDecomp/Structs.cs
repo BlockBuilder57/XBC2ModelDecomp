@@ -17,6 +17,16 @@ namespace XBC2ModelDecomp
             glTF
         }
 
+        public struct XBC1
+        {
+            public int Version;
+            public int FileSize;
+            public int CompressedSize;
+            public int Unknown1;
+
+            public MemoryStream Data;
+        }
+
 
         //wismt
         public struct MSRD
@@ -469,6 +479,13 @@ namespace XBC2ModelDecomp
             public Quaternion Position;
             public Quaternion Rotation;
             public Quaternion Scale;
+        }
+
+
+        //wismda
+        public struct WISMDA
+        {
+            public XBC1[] Files;
         }
     }
 }
