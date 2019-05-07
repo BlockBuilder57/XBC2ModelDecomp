@@ -14,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Threading;
+using System.Reflection;
 
 namespace XBC2ModelDecomp
 {
@@ -37,6 +38,8 @@ namespace XBC2ModelDecomp
                 "Very Funny Quote Goes Here"
             };
             txtConsole.Text = Quotes[new Random().Next(0, Quotes.Length - 1)];
+
+            this.Title = $"XBC2ModelDecomp v{Assembly.GetEntryAssembly().GetName().Version.ToString(2)}-{ThisAssembly.Git.Commit}{(ThisAssembly.Git.IsDirty ? "-dirty" : "")}";
         }
 
         private void LogEvent(object message)
