@@ -24,7 +24,35 @@ namespace XBC2ModelDecomp
             return text;
         }
 
-        public Structs.XBC1 ReadXBC1(Stream sXBC1, BinaryReader brXBC1, int offset, string saveToFileName = "", string savetoFilePath = "")
+        public void SaveStreamToFile(Stream stream, string fileName, string filePath)
+        {
+            if (!string.IsNullOrWhiteSpace(fileName) && !string.IsNullOrWhiteSpace(filePath))
+            {
+                if (fileName[1] == ':')
+                    fileName = fileName.Substring(3);
+
+                filePath += $@"{string.Join("/", fileName.Split('/').Reverse().Skip(1).Reverse())}";
+                fileName = fileName.Split('/').Last();
+
+                if (!string.IsNullOrWhiteSpace(fileName) && !string.IsNullOrWhiteSpace(filePath))
+                {
+                    if (!Directory.Exists(filePath))
+                        Directory.CreateDirectory(filePath);
+                    FileStream outputter = new FileStream($@"{filePath}\{fileName}", FileMode.OpenOrCreate);
+                    stream.CopyTo(outputter);
+                    outputter.Flush();
+                    outputter.Close();
+
+                    stream.Seek(0, SeekOrigin.Begin);
+                }
+            }
+            else
+            {
+                App.PushLog("No filename or file path given to SaveStreamToFile()!");
+            }
+        }
+
+        public Structs.XBC1 ReadXBC1(Stream sXBC1, BinaryReader brXBC1, int offset)
         {
             if (sXBC1 == null || brXBC1 == null || offset > sXBC1.Length || offset < 0)
                 return new Structs.XBC1 { Version = Int32.MaxValue };
@@ -42,20 +70,9 @@ namespace XBC2ModelDecomp
                 Version = brXBC1.ReadInt32(),
                 FileSize = brXBC1.ReadInt32(),
                 CompressedSize = brXBC1.ReadInt32(),
-                Unknown1 = brXBC1.ReadInt32()
+                Unknown1 = brXBC1.ReadInt32(),
+                Name = ReadNullTerminatedString(brXBC1)
             };
-
-            if (string.IsNullOrWhiteSpace(saveToFileName))
-                saveToFileName = ReadNullTerminatedString(brXBC1);
-            if (saveToFileName[1] == ':')
-                saveToFileName = saveToFileName.Substring(3);
-            else if (saveToFileName[0] == '/')
-                saveToFileName = saveToFileName.Substring(1);
-
-            savetoFilePath += $@"{string.Join("/", saveToFileName.Split('/').Reverse().Skip(1).Reverse())}";
-            saveToFileName = saveToFileName.Split('/').Last();
-            if (string.IsNullOrWhiteSpace(saveToFileName))
-                saveToFileName = $"0x{offset:X}";
 
             sXBC1.Seek(offset + 0x30, SeekOrigin.Begin);
             byte[] fileBuffer = new byte[XBC1.FileSize >= XBC1.CompressedSize ? XBC1.FileSize : XBC1.CompressedSize];
@@ -66,16 +83,6 @@ namespace XBC2ModelDecomp
             ZOutputStream ZOutFile = new ZOutputStream(msFile);
             ZOutFile.Write(fileBuffer, 0, XBC1.CompressedSize);
             ZOutFile.Flush();
-
-            if (App.SaveRawFiles && !string.IsNullOrWhiteSpace(saveToFileName) && !string.IsNullOrWhiteSpace(savetoFilePath))
-            {
-                if (!Directory.Exists(savetoFilePath))
-                    Directory.CreateDirectory(savetoFilePath);
-                FileStream outputter = new FileStream($@"{savetoFilePath}\{saveToFileName.Split('/').Last()}", FileMode.OpenOrCreate);
-                msFile.WriteTo(outputter);
-                outputter.Flush();
-                outputter.Close();
-            }
 
             msFile.Seek(0L, SeekOrigin.Begin);
             XBC1.Data = msFile;
@@ -139,8 +146,7 @@ namespace XBC2ModelDecomp
                 int BCMagic = brSAR1.ReadInt32();
                 if (BCMagic != 0x00004342)
                 {
-                    Console.WriteLine("BC is corrupt (or wrong endianness)!");
-                    Console.ReadLine();
+                    App.PushLog("BC is corrupt (or wrong endianness)!");
                     return new Structs.SAR1 { Version = Int32.MaxValue };
                 }
                 SAR1.BCItems[i] = new Structs.SARBC
@@ -184,10 +190,13 @@ namespace XBC2ModelDecomp
             Structs.SKEL SKEL = new Structs.SKEL
             {
                 Unknown1 = brSKEL.ReadInt32(),
-                Unknown2 = brSKEL.ReadInt32()
+                Unknown2 = brSKEL.ReadInt32(),
+
+                TOCItems = new Structs.SKELTOC[9],
+
+                NodeNames = new Dictionary<string, int>()
             };
 
-            SKEL.TOCItems = new Structs.SKELTOC[9];
             for (int i = 0; i < SKEL.TOCItems.Length; i++)
             {
                 SKEL.TOCItems[i] = new Structs.SKELTOC
@@ -231,6 +240,35 @@ namespace XBC2ModelDecomp
                 };
             }
 
+            for (int i = 0; i < SKEL.TOCItems[2].Count; i++)
+            {
+                Quaternion posQuat = SKEL.Transforms[i].Position;
+                Vector3 posVector = new Vector3(posQuat.X, posQuat.Y, posQuat.Z);
+                SKEL.Transforms[i].RealPosition = posVector;
+
+                SKEL.NodeNames.Add(SKEL.Nodes[i].Name, i);
+
+                if (SKEL.Parents[i] < 0) //is root
+                {
+                    SKEL.Transforms[i].RealPosition = posVector;
+                    SKEL.Transforms[i].RealRotation = SKEL.Transforms[i].Rotation;
+                }
+                else
+                {
+                    int curParentIndex = SKEL.Parents[i];
+                    //add rotation of parent
+                    SKEL.Transforms[i].RealRotation = SKEL.Transforms[curParentIndex].RealRotation * SKEL.Transforms[i].Rotation;
+                    //make position a quaternion again (for later operations)
+                    Quaternion bonePosQuat = new Quaternion(posVector, 0f);
+                    //multiply position and rotation (?)
+                    Quaternion bonePosRotQuat = SKEL.Transforms[curParentIndex].RealRotation * bonePosQuat;
+                    //do something or other i dunno
+                    Quaternion newPosition = bonePosRotQuat * new Quaternion(-SKEL.Transforms[curParentIndex].RealRotation.X, -SKEL.Transforms[curParentIndex].RealRotation.Y, -SKEL.Transforms[curParentIndex].RealRotation.Z, SKEL.Transforms[curParentIndex].RealRotation.W);
+                    //add position to parent's position
+                    SKEL.Transforms[i].RealPosition = new Vector3(newPosition.X, newPosition.Y, newPosition.Z) + SKEL.Transforms[curParentIndex].RealPosition;
+                }
+            }
+
             return SKEL;
         }
 
@@ -249,27 +287,27 @@ namespace XBC2ModelDecomp
             {
                 Version = brMSRD.ReadInt32(),
                 HeaderSize = brMSRD.ReadInt32(),
-                MainOffset = brMSRD.ReadInt32(), //0xC 0x10, 16
+                MainOffset = brMSRD.ReadInt32(),
 
                 Tag = brMSRD.ReadInt32(),
                 Revision = brMSRD.ReadInt32(),
 
-                DataItemsCount = brMSRD.ReadInt32(), //0x18 0x10, 16
-                DataItemsOffset = brMSRD.ReadInt32(), //0x1C 0x4C, 76
-                FileCount = brMSRD.ReadInt32(), //0x20 0xE, 14
-                TOCOffset = brMSRD.ReadInt32(), //0x24 0x18C, 396
+                DataItemsCount = brMSRD.ReadInt32(),
+                DataItemsOffset = brMSRD.ReadInt32(),
+                FileCount = brMSRD.ReadInt32(),
+                TOCOffset = brMSRD.ReadInt32(),
 
                 Unknown1 = brMSRD.ReadBytes(0x1C),
 
-                TextureIdsCount = brMSRD.ReadInt32(), //0x44
-                TextureIdsOffset = brMSRD.ReadInt32(), //0x48 0x234, 564
-                TextureCountOffset = brMSRD.ReadInt32() //0x4C 0x24E, 590
+                TextureIdsCount = brMSRD.ReadInt32(),
+                TextureIdsOffset = brMSRD.ReadInt32(),
+                TextureCountOffset = brMSRD.ReadInt32()
             };
             
             if (MSRD.DataItemsOffset != 0)
             {
                 MSRD.DataItems = new Structs.MSRDDataItem[MSRD.DataItemsCount];
-                sMSRD.Seek(MSRD.MainOffset + MSRD.DataItemsOffset, SeekOrigin.Begin); //0x5C, 92
+                sMSRD.Seek(MSRD.MainOffset + MSRD.DataItemsOffset, SeekOrigin.Begin);
                 for (int i = 0; i < MSRD.DataItemsCount; i++)
                 {
                     MSRD.DataItems[i] = new Structs.MSRDDataItem
@@ -285,7 +323,7 @@ namespace XBC2ModelDecomp
             
             if (MSRD.TextureIdsOffset != 0)
             {
-                sMSRD.Seek(MSRD.MainOffset + MSRD.TextureIdsOffset, SeekOrigin.Begin); //0x244, 580
+                sMSRD.Seek(MSRD.MainOffset + MSRD.TextureIdsOffset, SeekOrigin.Begin);
                 MSRD.TextureIds = new short[MSRD.TextureIdsCount];
                 for (int i = 0; i < MSRD.TextureIdsCount; i++)
                 {
@@ -295,7 +333,7 @@ namespace XBC2ModelDecomp
             
             if (MSRD.TextureCountOffset != 0)
             {
-                sMSRD.Seek(MSRD.MainOffset + MSRD.TextureCountOffset, SeekOrigin.Begin); //0x25E, 606
+                sMSRD.Seek(MSRD.MainOffset + MSRD.TextureCountOffset, SeekOrigin.Begin);
                 MSRD.TextureCount = brMSRD.ReadInt32(); //0x25E
                 MSRD.TextureChunkSize = brMSRD.ReadInt32();
                 MSRD.Unknown2 = brMSRD.ReadInt32();
@@ -319,15 +357,17 @@ namespace XBC2ModelDecomp
             }
 
             MSRD.TOC = new Structs.MSRDTOC[MSRD.FileCount];
-            for (int curFileOffset = 0; curFileOffset < MSRD.FileCount; curFileOffset++)
+            for (int i = 0; i < MSRD.FileCount; i++)
             {
-                sMSRD.Seek(MSRD.MainOffset + MSRD.TOCOffset + (curFileOffset * 12), SeekOrigin.Begin); //prevents errors I guess
-                MSRD.TOC[curFileOffset].CompSize = brMSRD.ReadInt32();
-                MSRD.TOC[curFileOffset].FileSize = brMSRD.ReadInt32();
-                MSRD.TOC[curFileOffset].Offset = brMSRD.ReadInt32();
+                sMSRD.Seek(MSRD.MainOffset + MSRD.TOCOffset + (i * 12), SeekOrigin.Begin); //prevents errors I guess
+                MSRD.TOC[i].CompSize = brMSRD.ReadInt32();
+                MSRD.TOC[i].FileSize = brMSRD.ReadInt32();
+                MSRD.TOC[i].Offset = brMSRD.ReadInt32();
 
-                App.PushLog($"Decompressing file{curFileOffset} in MSRD...");
-                MSRD.TOC[curFileOffset].Data = ReadXBC1(sMSRD, brMSRD, MSRD.TOC[curFileOffset].Offset, $"file{curFileOffset}.bin", App.CurOutputPath + @"\RawFiles").Data;
+                App.PushLog($"Decompressing file{i} in MSRD...");
+                MSRD.TOC[i].Data = ReadXBC1(sMSRD, brMSRD, MSRD.TOC[i].Offset).Data;
+                if (App.SaveRawFiles)
+                    SaveStreamToFile(MSRD.TOC[i].Data, $"file{i}.bin", App.CurOutputPath + @"\RawFiles\");
             }
 
             return MSRD;
@@ -461,20 +501,20 @@ namespace XBC2ModelDecomp
                         MXMD.ModelStruct.Meshes.Meshes[i] = new Structs.MXMDMesh
                         {
                             //ms says to add 1 to some of these, why?
-                            ID = brMXMD.ReadInt32(), //0x134
+                            ID = brMXMD.ReadInt32(),
 
-                            Descriptor = brMXMD.ReadInt32(), //0x138
+                            Descriptor = brMXMD.ReadInt32(),
 
-                            VertTableIndex = brMXMD.ReadInt16(), //0x13C
+                            VertTableIndex = brMXMD.ReadInt16(),
                             FaceTableIndex = brMXMD.ReadInt16(),
 
-                            Unknown1 = brMXMD.ReadInt16(), //0x140
+                            Unknown1 = brMXMD.ReadInt16(),
                             MaterialID = brMXMD.ReadInt16(),
                             Unknown2 = brMXMD.ReadBytes(0xC),
-                            Unknown3 = brMXMD.ReadInt16(), //0x150
+                            Unknown3 = brMXMD.ReadInt16(),
 
-                            LOD = brMXMD.ReadInt16(), //0x152
-                            Unknown4 = brMXMD.ReadInt32(), //0x154
+                            LOD = brMXMD.ReadInt16(),
+                            Unknown4 = brMXMD.ReadInt32(),
 
                             Unknown5 = brMXMD.ReadBytes(0xC),
                         };
@@ -817,16 +857,11 @@ namespace XBC2ModelDecomp
 
             Structs.MXMD MXMD = ReadMXMD(fsWIMDO, brWIMDO);
 
-            //these will be deleted eventually once I get skeleton and mesh reading, considering they're redundant
-
             Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
             for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
             {
                 NodesIdsNames.Add(r, MXMD.ModelStruct.Nodes.Nodes[r].Name);
-                App.PushLog($"{r} - {MXMD.ModelStruct.Nodes.Nodes[r].Name}");
             }
-
-            App.PushLog($"\n");
             #endregion WIMDOReading
 
             #region ARCReading
@@ -837,61 +872,24 @@ namespace XBC2ModelDecomp
             BinaryReader brSKEL = new BinaryReader(SAR1.ItemBySearch(".skl").Data);
             Structs.SKEL SKEL = ReadSKEL(brSKEL.BaseStream, brSKEL);
 
-            int boneCount = SKEL.TOCItems[2].Count;
-
-            Vector3[] bonePos = new Vector3[boneCount];
-            Quaternion[] boneRot = new Quaternion[boneCount];
-
-            string[] bone_names = new string[boneCount];
-            Dictionary<string, int> SKELNodeNames = new Dictionary<string, int>();
-
-            for (int i = 0; i < boneCount; i++)
-            {
-                Quaternion posQuat = SKEL.Transforms[i].Position;
-                Vector3 posVector = new Vector3(posQuat.X, posQuat.Y, posQuat.Z);
-                bonePos[i] = posVector;
-
-                SKELNodeNames.Add(SKEL.Nodes[i].Name, i);
-                bone_names[i] = SKEL.Nodes[i].Name;
-                App.PushLog($"{i} - {SKEL.Nodes[i].Name}");
-
-                if (SKEL.Parents[i] < 0) //is root
-                {
-                    bonePos[i] = posVector;
-                    boneRot[i] = SKEL.Transforms[i].Rotation;
-                }
-                else
-                {
-                    int curParentIndex = SKEL.Parents[i];
-                    //add rotation of parent
-                    boneRot[i] = boneRot[curParentIndex] * SKEL.Transforms[i].Rotation;
-                    //make position a quaternion again (for later operations)
-                    Quaternion bonePosQuat = new Quaternion(posVector, 0f);
-                    //multiply position and rotation (?)
-                    Quaternion bonePosRotQuat = boneRot[curParentIndex] * bonePosQuat;
-                    //do something or other i dunno
-                    Quaternion newPosition = bonePosRotQuat * new Quaternion(-boneRot[curParentIndex].X, -boneRot[curParentIndex].Y, -boneRot[curParentIndex].Z, boneRot[curParentIndex].W);
-                    //add position to parent's position
-                    bonePos[i] = new Vector3(newPosition.X, newPosition.Y, newPosition.Z) + bonePos[curParentIndex];
-                }
-            }
+            
             #endregion ARCReading
 
             //begin ascii
             //bone time
             StreamWriter asciiWriter = new StreamWriter($@"{App.CurOutputPath}\{App.CurFileNameNoExt + ".ascii"}");
-            asciiWriter.WriteLine(boneCount);
-            for (int j = 0; j < boneCount; j++)
+            asciiWriter.WriteLine(SKEL.TOCItems[2].Count);
+            for (int i = 0; i < SKEL.TOCItems[2].Count; i++)
             {
-                asciiWriter.WriteLine(SKEL.Nodes[j].Name);
-                asciiWriter.WriteLine(SKEL.Parents[j]);
-                asciiWriter.Write(bonePos[j].X.ToString("0.######"));
-                asciiWriter.Write(" " + bonePos[j].Y.ToString("0.######"));
-                asciiWriter.Write(" " + bonePos[j].Z.ToString("0.######"));
-                //asciiWriter.Write(" " + boneRot[j].X.ToString("0.######"));
-                //asciiWriter.Write(" " + boneRot[j].Y.ToString("0.######"));
-                //asciiWriter.Write(" " + boneRot[j].Z.ToString("0.######"));
-                //asciiWriter.Write(" " + boneRot[j].W.ToString("0.######"));
+                asciiWriter.WriteLine(SKEL.Nodes[i].Name);
+                asciiWriter.WriteLine(SKEL.Parents[i]);
+                asciiWriter.Write(SKEL.Transforms[i].RealPosition.X.ToString("F6") + " ");
+                asciiWriter.Write(SKEL.Transforms[i].RealPosition.Y.ToString("F6") + " ");
+                asciiWriter.Write(SKEL.Transforms[i].RealPosition.Z.ToString("F6") + " ");
+                //asciiWriter.Write(SKEL.Transforms[j].RealRotation.X.ToString("F6") + " ");
+                //asciiWriter.Write(SKEL.Transforms[j].RealRotation.Y.ToString("F6") + " ");
+                //asciiWriter.Write(SKEL.Transforms[j].RealRotation.Z.ToString("F6") + " ");
+                //asciiWriter.Write(SKEL.Transforms[j].RealRotation.W.ToString("F6"));
                 //bone name
                 //bone parent index
                 //x y z i j w real
@@ -1001,10 +999,10 @@ namespace XBC2ModelDecomp
                             asciiWriter.WriteLine(vertTbl.UVPosX[vrtIndex, curUVLayer].ToString("F6") + " " + vertTbl.UVPosY[vrtIndex, curUVLayer].ToString("F6"));
 
                         //weight ids
-                        asciiWriter.Write(SKELNodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 0]]] + " ");
-                        asciiWriter.Write(SKELNodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 1]]] + " ");
-                        asciiWriter.Write(SKELNodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 2]]] + " ");
-                        asciiWriter.Write(SKELNodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 3]]]);
+                        asciiWriter.Write(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 0]]] + " ");
+                        asciiWriter.Write(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 1]]] + " ");
+                        asciiWriter.Write(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 2]]] + " ");
+                        asciiWriter.Write(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 3]]]);
                         asciiWriter.WriteLine();
 
                         //weight values
@@ -1051,7 +1049,7 @@ namespace XBC2ModelDecomp
                 TextureTypeArray[i] = brCurFile.ReadInt32();
             }
 
-            for (int i = 0; i < MSRD.TextureIdsCount - 2; i++)
+            for (int i = 0; i < MSRD.TextureIdsCount; i++)
             {
                 brCurFile = new BinaryReader(MSRD.TOC[i + 2].Data);
                 int TextureType = 0;
@@ -1074,7 +1072,7 @@ namespace XBC2ModelDecomp
                         break;
                     case 0:
                     default:
-                        App.PushLog("unknown texture type " + TextureTypeArray[i]);
+                        App.PushLog($"Unknown texture type! {TextureTypeArray[i]}");
                         return;
                 }
 

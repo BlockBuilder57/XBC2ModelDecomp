@@ -50,7 +50,7 @@ namespace XBC2ModelDecomp
 
         private void SelectFile(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog ofd = new OpenFileDialog { Filter = "Model Files|*.wimdo|Map Files|*.wismda", Multiselect = true };
+            OpenFileDialog ofd = new OpenFileDialog { Filter = "Model Files (*.wimdo)|*.wimdo|Map Files (*.wismda)|*.wismda|All files (*.*)|*.*", Multiselect = true };
             if (ofd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 App.FilePaths = ofd.FileNames;
@@ -70,10 +70,7 @@ namespace XBC2ModelDecomp
 
         private void SelectOutputDir(object sender, RoutedEventArgs e)
         {
-            FolderBrowserDialog fbd = new FolderBrowserDialog
-            {
-                Description = @"Select the path to drop every file into. Each file will have its own name with its own folder for its files. (e.g. [output]\pc000101_Textures)"
-            };
+            FolderBrowserDialog fbd = new FolderBrowserDialog();
             if (App.OutputPaths != null)
                 fbd.SelectedPath = App.OutputPaths[0].Remove(App.OutputPaths[0].LastIndexOf('\\'));
             if (fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK)

@@ -24,6 +24,8 @@ namespace XBC2ModelDecomp
             public int CompressedSize;
             public int Unknown1;
 
+            public string Name;
+
             public MemoryStream Data;
         }
 
@@ -457,6 +459,8 @@ namespace XBC2ModelDecomp
             public short[] Parents;
             public SKELNodes[] Nodes;
             public SKELTransforms[] Transforms;
+
+            public Dictionary<string, int> NodeNames; //not in struct
         }
 
         public struct SKELTOC
@@ -479,6 +483,9 @@ namespace XBC2ModelDecomp
             public Quaternion Position;
             public Quaternion Rotation;
             public Quaternion Scale;
+
+            public Vector3 RealPosition; //not in struct
+            public Quaternion RealRotation; //not in struct
         }
 
 

@@ -29,7 +29,7 @@ namespace XBC2ModelDecomp
                     {
                         if (j == SearchBytes.Length - 1)
                         {
-                            Console.WriteLine($"String was found at offset {i}");
+                            //Console.WriteLine($"String was found at offset {i}");
                             magicOccurences.Add(i);
                             i += BitConverter.ToInt32(ByteBuffer, i + 12);
                         }
@@ -42,9 +42,17 @@ namespace XBC2ModelDecomp
                 Files = new Structs.XBC1[magicOccurences.Count]
             };
 
+            List<string> filenames = new List<string>();
+
             for (int i = 0; i < magicOccurences.Count; i++)
             {
-                WISMDA.Files[i] = ft.ReadXBC1(fileStream, binaryReader, magicOccurences[i], null, App.CurOutputPath + @"\RawFiles\");
+                WISMDA.Files[i] = ft.ReadXBC1(fileStream, binaryReader, magicOccurences[i]);
+
+                string fileName = WISMDA.Files[i].Name.Split('/').Last();
+                int dupeCount = filenames.Where(x => x == WISMDA.Files[i].Name).Count();
+
+                ft.SaveStreamToFile(WISMDA.Files[i].Data, $"{WISMDA.Files[i].Name}{(string.IsNullOrWhiteSpace(fileName) ? "NOFILENAME" : "")}{(dupeCount > 0 ? $"-{dupeCount}" : "")}", App.CurOutputPath + @"\RawFiles\");
+                filenames.Add(WISMDA.Files[i].Name);
             }
             fileStream.Dispose();
         }
