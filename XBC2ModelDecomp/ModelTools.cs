@@ -49,7 +49,7 @@ namespace XBC2ModelDecomp
                 }
 
                 BinaryReader brCurFile = new BinaryReader(MSRD.TOC[0].Data); //start new file
-                ft.ModelToASCII(MSRD.TOC[0].Data, brCurFile, App.CurFilePath);
+                ft.ModelToASCII(MSRD.TOC[0].Data, brCurFile);
 
                 App.PushLog($"Finished {Path.GetFileName(App.CurFilePath)}!\n");
             }

@@ -842,7 +842,7 @@ namespace XBC2ModelDecomp
             return Mesh;
         }
 
-        public void ModelToASCII(Stream memoryStream, BinaryReader binaryReader, string filepath)
+        public void ModelToASCII(Stream memoryStream, BinaryReader binaryReader)
         {
             Structs.Mesh Mesh = ReadMesh(memoryStream, binaryReader);
 
@@ -859,9 +859,7 @@ namespace XBC2ModelDecomp
 
             Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
             for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
-            {
                 NodesIdsNames.Add(r, MXMD.ModelStruct.Nodes.Nodes[r].Name);
-            }
             #endregion WIMDOReading
 
             #region ARCReading
@@ -871,8 +869,6 @@ namespace XBC2ModelDecomp
             Structs.SAR1 SAR1 = ReadSAR1(fsARC, brARC, @"\RawFiles\", App.SaveRawFiles);
             BinaryReader brSKEL = new BinaryReader(SAR1.ItemBySearch(".skl").Data);
             Structs.SKEL SKEL = ReadSKEL(brSKEL.BaseStream, brSKEL);
-
-            
             #endregion ARCReading
 
             //begin ascii
@@ -1006,7 +1002,11 @@ namespace XBC2ModelDecomp
                         asciiWriter.WriteLine();
 
                         //weight values
-                        asciiWriter.WriteLine(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 0].ToString("F6"));
+                        asciiWriter.Write(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 0].ToString("F6") + " ");
+                        asciiWriter.Write(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 1].ToString("F6") + " ");
+                        asciiWriter.Write(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 2].ToString("F6") + " ");
+                        asciiWriter.Write(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 3].ToString("F6"));
+                        asciiWriter.WriteLine();
                     }
 
                     //face count

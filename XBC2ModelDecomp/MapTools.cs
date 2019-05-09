@@ -14,6 +14,8 @@ namespace XBC2ModelDecomp
 
         public MapTools()
         {
+            App.PushLog($"Extracting large maps can take a lot of memory! If you have less than 2GB to spare the program, the program may slow down as it enters swap memory.");
+
             List<int> magicOccurences = new List<int>();
 
             FileStream fileStream = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wismda", FileMode.Open, FileAccess.Read);
@@ -36,6 +38,7 @@ namespace XBC2ModelDecomp
                     }
                 }
             }
+            ByteBuffer = new byte[0];
 
             Structs.WISMDA WISMDA = new Structs.WISMDA
             {
@@ -50,10 +53,13 @@ namespace XBC2ModelDecomp
 
                 string fileName = WISMDA.Files[i].Name.Split('/').Last();
                 int dupeCount = filenames.Where(x => x == WISMDA.Files[i].Name).Count();
+                string saveName = $"{WISMDA.Files[i].Name}{(string.IsNullOrWhiteSpace(fileName) ? "NOFILENAME" : "")}{(dupeCount > 0 ? $"-{dupeCount}" : "")}";
 
-                ft.SaveStreamToFile(WISMDA.Files[i].Data, $"{WISMDA.Files[i].Name}{(string.IsNullOrWhiteSpace(fileName) ? "NOFILENAME" : "")}{(dupeCount > 0 ? $"-{dupeCount}" : "")}", App.CurOutputPath + @"\RawFiles\");
+                ft.SaveStreamToFile(WISMDA.Files[i].Data, saveName, App.CurOutputPath + @"\RawFiles\");
+                App.PushLog($"Saved {saveName} to disk...");
                 filenames.Add(WISMDA.Files[i].Name);
             }
+            App.PushLog("Done!");
             fileStream.Dispose();
         }
     }

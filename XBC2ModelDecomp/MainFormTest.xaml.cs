@@ -39,7 +39,7 @@ namespace XBC2ModelDecomp
             };
             txtConsole.Text = Quotes[new Random().Next(0, Quotes.Length - 1)];
 
-            this.Title = $"XBC2ModelDecomp v{Assembly.GetEntryAssembly().GetName().Version.ToString(2)}-{ThisAssembly.Git.Commit}{(ThisAssembly.Git.IsDirty ? "-dirty" : "")}";
+            this.Title = $"XBC2ModelDecomp v{Assembly.GetEntryAssembly().GetName().Version.ToString(2)}-{ThisAssembly.Git.Commit}";
         }
 
         private void LogEvent(object message)

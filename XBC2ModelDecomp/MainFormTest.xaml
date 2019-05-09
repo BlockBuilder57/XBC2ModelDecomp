@@ -44,7 +44,7 @@
                         <ComboBoxItem Content="glTF"/>
                     </ComboBox>
                     <Label Content="Level of Detail:" Grid.Column="0" Grid.Row="3" HorizontalAlignment="Left" Margin="272,0,0,0" VerticalAlignment="Top" Height="15" Width="78" Padding="0"/>
-                    <Slider x:Name="EXsldLOD" Grid.Column="0" Grid.Row="3" Margin="350,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Maximum="3" Minimum="-1" SmallChange="1" Value="1" Width="100" TickPlacement="BottomRight" Height="30" AutoToolTipPlacement="TopLeft" ValueChanged="EXsldLOD_ValueChanged"/>
+                    <Slider x:Name="EXsldLOD" Grid.Column="0" Grid.Row="3" Margin="350,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Maximum="3" Minimum="-1" SmallChange="1" Value="0" Width="100" TickPlacement="BottomRight" Height="30" AutoToolTipPlacement="TopLeft" ValueChanged="EXsldLOD_ValueChanged"/>
 
                     <Button x:Name="EXbtnExtract" Content="Extract" Grid.Column="1" Grid.Row="2" HorizontalAlignment="Left" Margin="0,6,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="ExtractFile"/>
                 </Grid>
