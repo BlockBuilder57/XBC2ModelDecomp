@@ -15,6 +15,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Threading;
 using System.Reflection;
+using Microsoft.WindowsAPICodePack.Dialogs;
 
 namespace XBC2ModelDecomp
 {
@@ -73,14 +74,14 @@ namespace XBC2ModelDecomp
 
         private void SelectOutputDir(object sender, RoutedEventArgs e)
         {
-            FolderBrowserDialog fbd = new FolderBrowserDialog();
+            CommonOpenFileDialog fbd = new CommonOpenFileDialog { IsFolderPicker = true };
             if (App.OutputPaths != null)
-                fbd.SelectedPath = App.OutputPaths[0].Remove(App.OutputPaths[0].LastIndexOf('\\'));
-            if (fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                fbd.InitialDirectory = App.OutputPaths[0].Remove(App.OutputPaths[0].LastIndexOf('\\'));
+            if (fbd.ShowDialog() == CommonFileDialogResult.Ok)
             {
                 for (int i = 0; i < App.OutputPaths.Length; i++)
-                    App.OutputPaths[i] = fbd.SelectedPath + $@"\{Path.GetFileNameWithoutExtension(App.FilePaths[i])}";
-                EXtxtOutput.Text = fbd.SelectedPath;
+                    App.OutputPaths[i] = fbd.FileName + $@"\{Path.GetFileNameWithoutExtension(App.FilePaths[i])}";
+                EXtxtOutput.Text = fbd.FileName;
             }
         }
 

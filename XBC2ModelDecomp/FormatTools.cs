@@ -1099,9 +1099,9 @@ namespace XBC2ModelDecomp
                 TextureTypeArray[i] = brCurFile.ReadInt32();
             }
 
-            for (int i = 0; i < MSRD.TextureIdsCount; i++)
+            for (int i = 0; i < MSRD.TextureIdsCount - 1; i++)
             {
-                brCurFile = new BinaryReader(MSRD.TOC[i + 2].Data);
+                brCurFile = new BinaryReader(MSRD.TOC[i + 2].Data); //this is broken with wp010101
                 int TextureType = 0;
                 switch(TextureTypeArray[i])
                 {
