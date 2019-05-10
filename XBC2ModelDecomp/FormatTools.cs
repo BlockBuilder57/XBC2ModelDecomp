@@ -7,10 +7,16 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
+using SharpGLTF.Schema2;
+using SharpGLTF.Geometry;
+using SharpGLTF.Geometry.VertexTypes;
 using zlib;
+using SharpGLTF.Materials;
 
 namespace XBC2ModelDecomp
 {
+    using GLTFVert = Vertex<VertexPositionNormal, VertexColor1, VertexJoints16x4>;
+
     public class FormatTools
     {
         public static string ReadNullTerminatedString(BinaryReader br)
@@ -50,6 +56,47 @@ namespace XBC2ModelDecomp
             {
                 App.PushLog("No filename or file path given to SaveStreamToFile()!");
             }
+        }
+
+        public List<int> VerifyMeshes(Structs.MXMD MXMD, Structs.Mesh Mesh)
+        {
+            if (MXMD.ModelStruct.Meshes.Meshes.Count(x => x.LOD == App.LOD || App.LOD == -1) == 0)
+            {
+                int prev = App.LOD;
+                App.PushLog($"An LOD value of {App.LOD} returns 0 meshes, checking for the highest available LOD...");
+                for (int i = 0; i <= 3; i++)
+                {
+                    if (MXMD.ModelStruct.Meshes.Meshes.Count(x => x.LOD == i) > 0)
+                    {
+                        App.LOD = i;
+                        App.PushLog($"LOD set to {i}.");
+                        break;
+                    }
+                }
+                if (App.LOD == prev)
+                    App.PushLog("...this file has no meshes in it? Really?");
+            }
+
+            List<int> ValidMeshes = new List<int>();
+            for (int i = 0; i < MXMD.ModelStruct.Meshes.TableCount; i++)
+            {
+                if (MXMD.ModelStruct.Meshes.Meshes[i].LOD == App.LOD || App.LOD == -1)
+                {
+                    if (App.ExportOutlines || (!App.ExportOutlines && !MXMD.Materials[MXMD.ModelStruct.Meshes.Meshes[i].MaterialID].Name.Contains("outline")))
+                    {
+                        ValidMeshes.Add(i);
+                        if (App.ExportFlexes && Mesh.MorphDataOffset > 0)
+                        {
+                            List<Structs.MeshMorphDescriptor> descs = Mesh.MorphData.MorphDescriptors.Where(x => x.BufferID == MXMD.ModelStruct.Meshes.Meshes[i].VertTableIndex).ToList();
+                            if (descs.Count > 0)
+                                for (int j = 1; j < descs[0].TargetCounts; j++)
+                                    ValidMeshes.Add(i);
+                        }
+                    }
+                }
+            }
+
+            return ValidMeshes;
         }
 
         public Structs.XBC1 ReadXBC1(Stream sXBC1, BinaryReader brXBC1, int offset)
@@ -842,34 +889,11 @@ namespace XBC2ModelDecomp
             return Mesh;
         }
 
-        public void ModelToASCII(Stream memoryStream, BinaryReader binaryReader)
+        public void ModelToASCII(Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
         {
-            Structs.Mesh Mesh = ReadMesh(memoryStream, binaryReader);
-
-            if (!File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo"))
-                return;
-            if (!File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc"))
-                return;
-
-            #region WIMDOReading
-            FileStream fsWIMDO = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo", FileMode.Open, FileAccess.Read);
-            BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
-
-            Structs.MXMD MXMD = ReadMXMD(fsWIMDO, brWIMDO);
-
             Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
             for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
                 NodesIdsNames.Add(r, MXMD.ModelStruct.Nodes.Nodes[r].Name);
-            #endregion WIMDOReading
-
-            #region ARCReading
-            FileStream fsARC = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc", FileMode.Open, FileAccess.Read);
-            BinaryReader brARC = new BinaryReader(fsARC);
-
-            Structs.SAR1 SAR1 = ReadSAR1(fsARC, brARC, @"\RawFiles\", App.SaveRawFiles);
-            BinaryReader brSKEL = new BinaryReader(SAR1.ItemBySearch(".skl").Data);
-            Structs.SKEL SKEL = ReadSKEL(brSKEL.BaseStream, brSKEL);
-            #endregion ARCReading
 
             //begin ascii
             //bone time
@@ -892,41 +916,7 @@ namespace XBC2ModelDecomp
                 asciiWriter.WriteLine();
             }
 
-            if (MXMD.ModelStruct.Meshes.Meshes.Count(x => x.LOD == App.LOD || App.LOD == -1) == 0)
-            {
-                int prev = App.LOD;
-                App.PushLog($"An LOD value of {App.LOD} returns 0 meshes, checking for the highest available LOD...");
-                for (int i = 0; i <= 3; i++)
-                {
-                    if (MXMD.ModelStruct.Meshes.Meshes.Count(x => x.LOD == i) > 0)
-                    {
-                        App.LOD = i;
-                        App.PushLog($"LOD set to {i}.");
-                        break;
-                    }
-                }
-                if (App.LOD == prev)
-                    App.PushLog("...this file has no meshes in it? Really?");
-            }
-
-            List<int> ValidMeshes = new List<int>();
-            for (int i = 0; i < MXMD.ModelStruct.Meshes.TableCount; i++)
-            {
-                if (MXMD.ModelStruct.Meshes.Meshes[i].LOD == App.LOD || App.LOD == -1)
-                {
-                    if (App.ExportOutlines || (!App.ExportOutlines && !MXMD.Materials[MXMD.ModelStruct.Meshes.Meshes[i].MaterialID].Name.Contains("outline")))
-                    {
-                        ValidMeshes.Add(i);
-                        if (App.ExportFlexes && Mesh.MorphDataOffset > 0)
-                        {
-                            List<Structs.MeshMorphDescriptor> descs = Mesh.MorphData.MorphDescriptors.Where(x => x.BufferID == MXMD.ModelStruct.Meshes.Meshes[i].VertTableIndex).ToList();
-                            if (descs.Count > 0)
-                                for (int j = 1; j < descs[0].TargetCounts; j++)
-                                    ValidMeshes.Add(i);
-                        }
-                    }
-                }
-            }
+            List<int> ValidMeshes = VerifyMeshes(MXMD, Mesh);
 
             int lastMeshIdIdenticalCount = 0;
             bool lastMeshIdIdentical = false;
@@ -1028,10 +1018,70 @@ namespace XBC2ModelDecomp
             GC.Collect();
         }
 
-        public void ReadTextures(Stream sWISMT, BinaryReader brWISMT, Structs.MSRD MSRD, string texturesFolderPath)
+        public void ModelToGLTF(Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
         {
-            if (sWISMT == null || brWISMT == null)
-                return;
+            List<int> ValidMeshes = VerifyMeshes(MXMD, Mesh);
+
+            MeshBuilder<VertexPositionNormal, VertexEmpty, VertexJoints16x4>[] meshBuilders = new MeshBuilder<VertexPositionNormal, VertexEmpty, VertexJoints16x4>[ValidMeshes.Count];
+            Dictionary<string, MaterialBuilder> nameToMat = new Dictionary<string, MaterialBuilder>();
+
+            for (int i = 0; i < MXMD.MaterialHeader.Count; i++)
+            {
+                MaterialBuilder material = new MaterialBuilder(MXMD.Materials[i].Name)
+                    .WithMetallicRoughnessShader()
+                    .WithChannelParam(KnownChannels.BaseColor, new Vector4(1, 1, 1, 1));
+                nameToMat.Add(MXMD.Materials[i].Name, material);
+            }
+
+            int lastMeshIdIdenticalCount = 0;
+            bool lastMeshIdIdentical = false;
+            Structs.MeshVertexTable weightTbl = Mesh.VertexTables.Last();
+            for (int i = 0; i < ValidMeshes.Count; i++)
+            {
+                lastMeshIdIdentical = i == 0 ? false : ValidMeshes[i - 1] == ValidMeshes[i];
+
+                if (lastMeshIdIdentical)
+                    lastMeshIdIdenticalCount++;
+                else
+                    lastMeshIdIdenticalCount = 0;
+
+                int meshId = ValidMeshes[i];
+
+                Structs.MXMDMesh MXMDMesh = MXMD.ModelStruct.Meshes.Meshes[meshId];
+                Structs.MeshVertexTable vertTbl = Mesh.VertexTables[MXMDMesh.VertTableIndex];
+                Structs.MeshFaceTable faceTbl = Mesh.FaceTables[MXMDMesh.FaceTableIndex];
+
+                MeshBuilder<VertexPositionNormal, VertexEmpty, VertexJoints16x4> meshBuilder = new MeshBuilder<VertexPositionNormal, VertexEmpty, VertexJoints16x4>($"mesh{meshId}{(App.LOD == -1 ? $"_LOD{MXMDMesh.LOD}_" : "")}{(lastMeshIdIdentical ? $"flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}" : "")}");
+                PrimitiveBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexJoints16x4> meshPrim = meshBuilder.UsePrimitive(nameToMat[MXMD.Materials[MXMDMesh.MaterialID].Name]);
+
+                for (int j = 0; j < faceTbl.VertCount; j += 3)
+                {
+                    Vector3 vert0 = vertTbl.Vertices[faceTbl.Vertices[j]];
+                    Vector3 vert1 = vertTbl.Vertices[faceTbl.Vertices[j + 1]];
+                    Vector3 vert2 = vertTbl.Vertices[faceTbl.Vertices[j + 2]];
+                    Vector3 norm0 = new Vector3(vertTbl.Normals[faceTbl.Vertices[j]].X, vertTbl.Normals[faceTbl.Vertices[j]].Y, vertTbl.Normals[faceTbl.Vertices[j]].Z);
+                    Vector3 norm1 = new Vector3(vertTbl.Normals[faceTbl.Vertices[j + 1]].X, vertTbl.Normals[faceTbl.Vertices[j + 1]].Y, vertTbl.Normals[faceTbl.Vertices[j + 1]].Z);
+                    Vector3 norm2 = new Vector3(vertTbl.Normals[faceTbl.Vertices[j + 2]].X, vertTbl.Normals[faceTbl.Vertices[j + 2]].Y, vertTbl.Normals[faceTbl.Vertices[j + 2]].Z);
+
+                    meshPrim.AddTriangle(new GLTFVert(new VertexPositionNormal(vert0, norm0)), new GLTFVert(new VertexPositionNormal(vert1, norm1)), new GLTFVert(new VertexPositionNormal(vert2, norm2)));
+                }
+
+                meshBuilders[i] = meshBuilder;
+            }
+
+            ModelRoot model = ModelRoot.CreateModel();
+            IReadOnlyList<Mesh> meshes = model.CreateMeshes(meshBuilders);
+            Scene scene = model.UseScene("default");
+            Node node = scene.CreateNode(App.CurFileNameNoExt);
+
+            foreach (Mesh m in meshes)
+                node.CreateNode().WithMesh(m);
+
+            model.SaveGLB($@"{App.CurOutputPath}\{App.CurFileNameNoExt + ".glb"}");
+        }
+
+        public void ReadTextures(Structs.MSRD MSRD, string texturesFolderPath)
+        {
             App.PushLog("Reading textures...");
 
             BinaryReader brCurFile = new BinaryReader(MSRD.TOC[1].Data);

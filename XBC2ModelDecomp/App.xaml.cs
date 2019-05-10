@@ -30,6 +30,7 @@ namespace XBC2ModelDecomp
         public static bool SaveRawFiles;
         public static bool ExportOutlines;
         public static int LOD;
+        public static Structs.ExportFormat ExportFormat = Structs.ExportFormat.XNALara;
 
         public delegate void Log(object logMessage);
         public static event Log LogEvent;

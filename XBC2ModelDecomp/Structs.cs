@@ -11,7 +11,7 @@ namespace XBC2ModelDecomp
 {
     public class Structs
     {
-        public enum ModelFormat
+        public enum ExportFormat
         {
             XNALara,
             glTF

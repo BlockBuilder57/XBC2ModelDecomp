@@ -45,11 +45,38 @@ namespace XBC2ModelDecomp
                     string texturesFolderPath = App.CurOutputPath + @"\Textures";
                     if (!Directory.Exists(texturesFolderPath))
                         Directory.CreateDirectory(texturesFolderPath);
-                    ft.ReadTextures(fsWISMT, brWISMT, MSRD, texturesFolderPath);
+                    ft.ReadTextures(MSRD, texturesFolderPath);
                 }
 
                 BinaryReader brCurFile = new BinaryReader(MSRD.TOC[0].Data); //start new file
-                ft.ModelToASCII(MSRD.TOC[0].Data, brCurFile);
+
+                Structs.Mesh Mesh = ft.ReadMesh(MSRD.TOC[0].Data, brCurFile);
+
+                if (!File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo"))
+                    return;
+                if (!File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc"))
+                    return;
+
+                #region WIMDOReading
+                FileStream fsWIMDO = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo", FileMode.Open, FileAccess.Read);
+                BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
+
+                Structs.MXMD MXMD = ft.ReadMXMD(fsWIMDO, brWIMDO);
+                #endregion WIMDOReading
+
+                #region ARCReading
+                FileStream fsARC = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc", FileMode.Open, FileAccess.Read);
+                BinaryReader brARC = new BinaryReader(fsARC);
+
+                Structs.SAR1 SAR1 = ft.ReadSAR1(fsARC, brARC, @"\RawFiles\", App.SaveRawFiles);
+                BinaryReader brSKEL = new BinaryReader(SAR1.ItemBySearch(".skl").Data);
+                Structs.SKEL SKEL = ft.ReadSKEL(brSKEL.BaseStream, brSKEL);
+                #endregion ARCReading
+
+                if (App.ExportFormat == Structs.ExportFormat.XNALara)
+                    ft.ModelToASCII(Mesh, MXMD, SKEL);
+                else
+                    ft.ModelToGLTF(Mesh, MXMD, SKEL);
 
                 App.PushLog($"Finished {Path.GetFileName(App.CurFilePath)}!\n");
             }

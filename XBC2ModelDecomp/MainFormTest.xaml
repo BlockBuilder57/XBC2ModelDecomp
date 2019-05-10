@@ -39,7 +39,7 @@
                     <CheckBox x:Name="EXcbxRawFiles" Content="Save raw files in containers" ToolTip="All raw files contained in the model's files will be extracted to the RawFiles folder." HorizontalAlignment="Left" Margin="200,15,0,0" Grid.Row="2" VerticalAlignment="Top"/>
 
                     <Label Content="Output Format:" Grid.Column="0" Grid.Row="3" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Top" Height="15" Width="85" Padding="0"/>
-                    <ComboBox x:Name="EXdropFormat" Grid.Column="0" Grid.Row="3" Margin="95,0,0,0" Width="100" Height="15" Padding="2,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <ComboBox x:Name="EXdropFormat" Grid.Column="0" Grid.Row="3" Margin="95,0,0,0" Width="100" Height="15" Padding="2,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" SelectedIndex="0">
                         <ComboBoxItem Content="XNALara"/>
                         <ComboBoxItem Content="glTF"/>
                     </ComboBox>
