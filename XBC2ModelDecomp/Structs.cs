@@ -77,13 +77,13 @@ namespace XBC2ModelDecomp
                 output += $"\n\n\tDataItemsCount: {DataItemsCount}";
                 output += $"\n\tDataItemsOffset: {DataItemsOffset}";
                 output += $"\n\tFileCount: {FileCount}";
-                output += $"\n\tTOCOffset: {TOCOffset}";
+                output += $"\n\tTOCOffset: 0x{TOCOffset:X}";
 
                 output += $"\n\n\tUnknown1: 0x{BitConverter.ToString(Unknown1).Replace("-", "")}";
 
                 output += $"\n\n\tTextureIdsCount: {TextureIdsCount}";
-                output += $"\n\tTextureIdsOffset: {TextureIdsOffset}";
-                output += $"\n\tTextureCountOffset: {TextureCountOffset}";
+                output += $"\n\tTextureIdsOffset: 0{TextureIdsOffset:X}";
+                output += $"\n\tTextureCountOffset: 0x{TextureCountOffset:X}";
 
                 output += $"\n\n\tDataItems[{DataItems.Length}]:";
                 for (int i = 0; i < DataItems.Length; i++)
@@ -91,7 +91,7 @@ namespace XBC2ModelDecomp
                     output += $"\n\t\tItem {i}:";
                     output += $"\n\t\t\tOffset: 0x{DataItems[i].Offset:X}";
                     output += $"\n\t\t\tSize: 0x{DataItems[i].Size:X}";
-                    output += $"\n\t\t\tid1: {DataItems[i].id1}";
+                    output += $"\n\t\t\tTOCIndex: {DataItems[i].TOCIndex}";
                     output += $"\n\t\t\tType: {DataItems[i].Type} ({(int)DataItems[i].Type})";
                 }
 
@@ -141,7 +141,7 @@ namespace XBC2ModelDecomp
         {
             public int Offset;
             public int Size;
-            public short id1;
+            public short TOCIndex;
             public MSRDDataItemTypes Type;
         }
 
