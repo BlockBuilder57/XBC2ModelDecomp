@@ -13,6 +13,7 @@ namespace XBC2ModelDecomp
     {
         public enum ExportFormat
         {
+            None,
             XNALara,
             glTF
         }
@@ -61,6 +62,71 @@ namespace XBC2ModelDecomp
             public int TextureStringBufferOffset;
             public MSRDTextureInfo[] TextureInfo;
             public string[] TextureNames;
+
+            public override string ToString()
+            {
+                string output = "MSRD:";
+
+                output += $"\n\tVersion: {Version}";
+                output += $"\n\tHeaderSize: 0x{HeaderSize:X}";
+                output += $"\n\tMainOffset: 0x{MainOffset:X}";
+
+                output += $"\n\n\tTag: {Tag}";
+                output += $"\n\tRevision: {Revision}";
+
+                output += $"\n\n\tDataItemsCount: {DataItemsCount}";
+                output += $"\n\tDataItemsOffset: {DataItemsOffset}";
+                output += $"\n\tFileCount: {FileCount}";
+                output += $"\n\tTOCOffset: {TOCOffset}";
+
+                output += $"\n\n\tUnknown1: 0x{BitConverter.ToString(Unknown1).Replace("-", "")}";
+
+                output += $"\n\n\tTextureIdsCount: {TextureIdsCount}";
+                output += $"\n\tTextureIdsOffset: {TextureIdsOffset}";
+                output += $"\n\tTextureCountOffset: {TextureCountOffset}";
+
+                output += $"\n\n\tDataItems[{DataItems.Length}]:";
+                for (int i = 0; i < DataItems.Length; i++)
+                {
+                    output += $"\n\t\tItem {i}:";
+                    output += $"\n\t\t\tOffset: 0x{DataItems[i].Offset:X}";
+                    output += $"\n\t\t\tSize: 0x{DataItems[i].Size:X}";
+                    output += $"\n\t\t\tid1: {DataItems[i].id1}";
+                    output += $"\n\t\t\tType: {DataItems[i].Type} ({(int)DataItems[i].Type})";
+                }
+
+                output += $"\n\tTOC[{TOC.Length}]:";
+                for (int i = 0; i < TOC.Length; i++)
+                {
+                    output += $"\n\t\tItem {i}:";
+                    output += $"\n\t\t\tCompSize: 0x{TOC[i].CompSize:X}";
+                    output += $"\n\t\t\tFileSize: 0x{TOC[i].FileSize:X}";
+                    output += $"\n\t\t\tOffset: 0x{TOC[i].Offset:X}";
+                }
+
+                output += $"\n\n\tTextureIds[{TextureIds.Length}]:";
+                for (int i = 0; i < TextureIds.Length; i++)
+                    output += $"\n\t\tItem {i}: {TextureIds[i]}";
+
+                output += $"\n\tTextureCount: {TextureCount}";
+                output += $"\n\tTextureChunkSize: 0x{TextureChunkSize:X}";
+                output += $"\n\tUnknown2: {Unknown2}";
+                output += $"\n\tTextureStringBufferOffset: 0x{TextureStringBufferOffset:X}";
+                output += $"\n\tTextureInfo[{TextureInfo.Length}]:";
+                for (int i = 0; i < TextureInfo.Length; i++)
+                {
+                    output += $"\n\t\tItem {i}:";
+                    output += $"\n\t\t\tUnknown1: 0x{TextureInfo[i].Unknown1:X}";
+                    output += $"\n\t\t\tSize: 0x{TextureInfo[i].Size:X}";
+                    output += $"\n\t\t\tOffset: 0x{TextureInfo[i].Offset:X}";
+                    output += $"\n\t\t\tStringOffset: 0x{TextureInfo[i].StringOffset:X}";
+                }
+                output += $"\n\tTextureNames[{TextureNames.Length}]:";
+                for (int i = 0; i < TextureNames.Length; i++)
+                    output += $"\n\t\tItem {i}: {TextureNames[i]}";
+
+                return output;
+            }
         }
 
         public enum MSRDDataItemTypes : ushort

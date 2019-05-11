@@ -1103,7 +1103,7 @@ namespace XBC2ModelDecomp
             {
                 brCurFile = new BinaryReader(MSRD.TOC[i + 2].Data); //this is broken with wp010101
                 int TextureType = 0;
-                switch(TextureTypeArray[i])
+                switch (TextureTypeArray[i])
                 {
                     case 37:
                         TextureType = 28;
