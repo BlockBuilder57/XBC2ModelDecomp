@@ -99,6 +99,7 @@ namespace XBC2ModelDecomp
             App.ExportAnims = EXcbxAnims.IsChecked.Value;
             App.ExportOutlines = EXcbxOutlines.IsChecked.Value;
             App.SaveRawFiles = EXcbxRawFiles.IsChecked.Value;
+            App.ShowInfo = EXcbxShowInfo.IsChecked.Value;
             App.LOD = (int)EXsldLOD.Value;
             App.ExportFormat = (Structs.ExportFormat)EXdropFormat.SelectedIndex;
 

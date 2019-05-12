@@ -27,8 +27,9 @@ namespace XBC2ModelDecomp
         public static bool ExportTextures;
         public static bool ExportFlexes;
         public static bool ExportAnims;
-        public static bool SaveRawFiles;
         public static bool ExportOutlines;
+        public static bool ShowInfo;
+        public static bool SaveRawFiles;
         public static int LOD;
         public static Structs.ExportFormat ExportFormat = Structs.ExportFormat.XNALara;
 

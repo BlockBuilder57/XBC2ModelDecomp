@@ -1162,7 +1162,15 @@ namespace XBC2ModelDecomp
                         break;
                 }
 
-                string filename = $@"{texturesFolderPath}\{i.ToString("d2")}.{(MSRD.TextureIdsCount == MSRD.FileCount - 2 ? MSRD.TextureNames[MSRD.TextureIds[i]] : DataTextureNames[i])}";
+                string filename = $@"{texturesFolderPath}\cool song.mp3.exe";
+                try
+                {
+                    filename = $@"{texturesFolderPath}\{i.ToString("d2")}.{(MSRD.TextureIdsCount == MSRD.FileCount - 2 ? MSRD.TextureNames[MSRD.TextureIds[i]] : DataTextureNames[i])}";
+                }
+                catch
+                {
+                    filename = $@"{texturesFolderPath}\{i.ToString("d2")}.i couldnt find the filename sorry";
+                }
 
                 FileStream fsTexture;
                 if (TextureTypeArray[i] == 37)

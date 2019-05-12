@@ -48,6 +48,7 @@
                     <Slider x:Name="EXsldLOD" Grid.Column="0" Grid.Row="3" Margin="350,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Maximum="3" Minimum="-1" SmallChange="1" Value="0" Width="100" TickPlacement="BottomRight" Height="30" AutoToolTipPlacement="TopLeft" ValueChanged="EXsldLOD_ValueChanged"/>
 
                     <Button x:Name="EXbtnExtract" Content="Extract" Grid.Column="1" Grid.Row="2" HorizontalAlignment="Left" Margin="0,6,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="ExtractFile"/>
+                    <CheckBox x:Name="EXcbxShowInfo" Content="Info" ToolTip="Each struct of the model will have its data outputted to the console." HorizontalAlignment="Left" Margin="0,30,0,0" Grid.Column="1" Grid.Row="2" VerticalAlignment="Top"/>
                 </Grid>
             </TabItem>
             <TabItem x:Name="tabConsole" Header="Console">

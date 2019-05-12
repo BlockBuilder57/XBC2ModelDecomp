@@ -22,7 +22,6 @@ namespace XBC2ModelDecomp
             BinaryReader brWISMT = new BinaryReader(fsWISMT);
 
             Structs.MSRD MSRD = ft.ReadMSRD(fsWISMT, brWISMT);
-            App.PushLog(MSRD.ToString());
 
             if (App.ExportAnims && File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".mot"))
             {
@@ -73,6 +72,13 @@ namespace XBC2ModelDecomp
                 BinaryReader brSKEL = new BinaryReader(SAR1.ItemBySearch(".skl").Data);
                 Structs.SKEL SKEL = ft.ReadSKEL(brSKEL.BaseStream, brSKEL);
                 #endregion ARCReading
+
+                if (App.ShowInfo)
+                {
+                    App.PushLog(MSRD.ToString());
+                    App.PushLog(Mesh.ToString());
+                    App.PushLog(MXMD.ToString());
+                }
 
                 switch (App.ExportFormat)
                 {
