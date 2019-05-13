@@ -44,6 +44,26 @@ namespace XBC2ModelDecomp
             }
         }
 
+        public struct LBIM //its reverse?
+        {
+            public MSRDDataItem DataItem; //not in struc
+
+            public MemoryStream Data;
+
+            public int Unknown5;
+            public int Unknown4;
+
+            public int Width;
+            public int Height;
+
+            public int Unknown3;
+            public int Unknown2;
+
+            public int Type;
+            public int Unknown1;
+            public int Version;
+        }
+
 
         //wismt
         public struct MSRD
@@ -147,7 +167,7 @@ namespace XBC2ModelDecomp
         {
             Model = 0,
             ShaderBundle,
-            CachedTexture,
+            CachedTextures,
             Texture
         }
 
