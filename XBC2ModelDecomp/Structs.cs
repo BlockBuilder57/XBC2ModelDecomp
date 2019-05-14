@@ -534,7 +534,7 @@ namespace XBC2ModelDecomp
                 output += $"\n\t\t\tTableOffset: 0x{ModelStruct.MorphNames.TableOffset:X}";
                 output += $"\n\t\t\tCount: {ModelStruct.MorphNames.Count}";
 
-                output += $"\n\n\t\t\tUnknown2: 0x{BitConverter.ToString(ModelStruct.MorphNames.Unknown2).Replace("-", "")}";
+                //output += $"\n\n\t\t\tUnknown2: 0x{BitConverter.ToString(ModelStruct.MorphNames.Unknown2).Replace("-", "")}";
 
                 output += $"\n\n\t\t\tNames[{ModelStruct.MorphNames.Count}]:";
                 for (int i = 0; i < ModelStruct.MorphNames.Count; i++)

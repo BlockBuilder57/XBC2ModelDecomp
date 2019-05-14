@@ -60,6 +60,9 @@ namespace XBC2ModelDecomp
 
         public List<int> VerifyMeshes(Structs.MXMD MXMD, Structs.Mesh Mesh)
         {
+            if (MXMD.Version == Int32.MaxValue)
+                return new List<int>() { 0 };
+
             if (MXMD.ModelStruct.Meshes.Meshes.Count(x => x.LOD == App.LOD || App.LOD == -1) == 0)
             {
                 int prev = App.LOD;
@@ -927,7 +930,7 @@ namespace XBC2ModelDecomp
             return Mesh;
         }
 
-        public void ModelToASCII(Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
+        public void ModelToASCII(Structs.MSRD MSRD, Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
         {
             Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
             for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
@@ -936,23 +939,28 @@ namespace XBC2ModelDecomp
             //begin ascii
             //bone time
             StreamWriter asciiWriter = new StreamWriter($@"{App.CurOutputPath}\{App.CurFileNameNoExt + ".ascii"}");
-            asciiWriter.WriteLine(SKEL.TOCItems[2].Count);
-            for (int i = 0; i < SKEL.TOCItems[2].Count; i++)
+            if (SKEL.Unknown1 != Int32.MaxValue)
             {
-                asciiWriter.WriteLine(SKEL.Nodes[i].Name);
-                asciiWriter.WriteLine(SKEL.Parents[i]);
-                asciiWriter.Write(SKEL.Transforms[i].RealPosition.X.ToString("F6") + " ");
-                asciiWriter.Write(SKEL.Transforms[i].RealPosition.Y.ToString("F6") + " ");
-                asciiWriter.Write(SKEL.Transforms[i].RealPosition.Z.ToString("F6") + " ");
-                //asciiWriter.Write(SKEL.Transforms[j].RealRotation.X.ToString("F6") + " ");
-                //asciiWriter.Write(SKEL.Transforms[j].RealRotation.Y.ToString("F6") + " ");
-                //asciiWriter.Write(SKEL.Transforms[j].RealRotation.Z.ToString("F6") + " ");
-                //asciiWriter.Write(SKEL.Transforms[j].RealRotation.W.ToString("F6"));
-                //bone name
-                //bone parent index
-                //x y z i j w real
-                asciiWriter.WriteLine();
+                asciiWriter.WriteLine(SKEL.TOCItems[2].Count);
+                for (int i = 0; i < SKEL.TOCItems[2].Count; i++)
+                {
+                    asciiWriter.WriteLine(SKEL.Nodes[i].Name);
+                    asciiWriter.WriteLine(SKEL.Parents[i]);
+                    asciiWriter.Write(SKEL.Transforms[i].RealPosition.X.ToString("F6") + " ");
+                    asciiWriter.Write(SKEL.Transforms[i].RealPosition.Y.ToString("F6") + " ");
+                    asciiWriter.Write(SKEL.Transforms[i].RealPosition.Z.ToString("F6") + " ");
+                    //asciiWriter.Write(SKEL.Transforms[j].RealRotation.X.ToString("F6") + " ");
+                    //asciiWriter.Write(SKEL.Transforms[j].RealRotation.Y.ToString("F6") + " ");
+                    //asciiWriter.Write(SKEL.Transforms[j].RealRotation.Z.ToString("F6") + " ");
+                    //asciiWriter.Write(SKEL.Transforms[j].RealRotation.W.ToString("F6"));
+                    //bone name
+                    //bone parent index
+                    //x y z i j w real
+                    asciiWriter.WriteLine();
+                }
             }
+            else
+                asciiWriter.WriteLine(0);
 
             List<int> ValidMeshes = VerifyMeshes(MXMD, Mesh);
 
@@ -970,7 +978,7 @@ namespace XBC2ModelDecomp
                     lastMeshIdIdenticalCount = 0;
 
                 int meshId = ValidMeshes[i];
-                Structs.MXMDMesh MXMDMesh = MXMD.ModelStruct.Meshes.Meshes[meshId];
+                Structs.MXMDMesh MXMDMesh = MXMD.Version == Int32.MaxValue ? default : MXMD.ModelStruct.Meshes.Meshes[meshId];
                 if (MXMDMesh.LOD == App.LOD || App.LOD == -1)
                 {
                     Structs.MeshVertexTable vertTbl = Mesh.VertexTables[MXMDMesh.VertTableIndex];
@@ -989,7 +997,18 @@ namespace XBC2ModelDecomp
                             lowestVertId = faceTbl.Vertices[j];
                     }
 
-                    asciiWriter.WriteLine($"mesh{meshId}_{(App.LOD == -1 ? $"LOD{MXMDMesh.LOD}_" : "")}{(lastMeshIdIdentical ? $"flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}" : MXMD.Materials[MXMDMesh.MaterialID].Name)}"); //mesh name
+                    string meshName = $"mesh{meshId}_{(App.LOD == -1 ? $"LOD{MXMDMesh.LOD}_" : "")}";
+                    if (lastMeshIdIdentical)
+                        meshName += $"flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}";
+                    else
+                    {
+                        if (MXMD.Version != Int32.MaxValue)
+                            meshName += MXMD.Materials[MXMDMesh.MaterialID].Name;
+                        else
+                            meshName += "NO_MATERIALS";
+                    }
+
+                    asciiWriter.WriteLine(meshName); //mesh name
                     asciiWriter.WriteLine(vertTbl.UVLayerCount);
                     asciiWriter.WriteLine(0); //texture count, always 0 for us, though maybe I should change that?
                     asciiWriter.WriteLine(highestVertId - lowestVertId + 1); //vertex count
@@ -1022,19 +1041,22 @@ namespace XBC2ModelDecomp
                         for (int curUVLayer = 0; curUVLayer < vertTbl.UVLayerCount; curUVLayer++)
                             asciiWriter.WriteLine(vertTbl.UVPosX[vrtIndex, curUVLayer].ToString("F6") + " " + vertTbl.UVPosY[vrtIndex, curUVLayer].ToString("F6"));
 
-                        //weight ids
-                        asciiWriter.Write(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 0]]] + " ");
-                        asciiWriter.Write(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 1]]] + " ");
-                        asciiWriter.Write(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 2]]] + " ");
-                        asciiWriter.Write(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 3]]]);
-                        asciiWriter.WriteLine();
+                        if (SKEL.Unknown1 != Int32.MaxValue)
+                        {
+                            //weight ids
+                            asciiWriter.Write(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 0]]] + " ");
+                            asciiWriter.Write(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 1]]] + " ");
+                            asciiWriter.Write(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 2]]] + " ");
+                            asciiWriter.Write(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[vrtIndex], 3]]]);
+                            asciiWriter.WriteLine();
 
-                        //weight values
-                        asciiWriter.Write(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 0].ToString("F6") + " ");
-                        asciiWriter.Write(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 1].ToString("F6") + " ");
-                        asciiWriter.Write(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 2].ToString("F6") + " ");
-                        asciiWriter.Write(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 3].ToString("F6"));
-                        asciiWriter.WriteLine();
+                            //weight values
+                            asciiWriter.Write(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 0].ToString("F6") + " ");
+                            asciiWriter.Write(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 1].ToString("F6") + " ");
+                            asciiWriter.Write(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 2].ToString("F6") + " ");
+                            asciiWriter.Write(weightTbl.WeightValues[vertTbl.Weights[vrtIndex], 3].ToString("F6"));
+                            asciiWriter.WriteLine();
+                        }
                     }
 
                     //face count
@@ -1056,7 +1078,7 @@ namespace XBC2ModelDecomp
             GC.Collect();
         }
 
-        public void ModelToGLTF(Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
+        public void ModelToGLTF(Structs.MSRD MSRD, Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
         {
             List<int> ValidMeshes = VerifyMeshes(MXMD, Mesh);
 
@@ -1085,12 +1107,12 @@ namespace XBC2ModelDecomp
 
                 int meshId = ValidMeshes[i];
 
-                Structs.MXMDMesh MXMDMesh = MXMD.ModelStruct.Meshes.Meshes[meshId];
+                Structs.MXMDMesh MXMDMesh = MXMD.Version == Int32.MaxValue ? default : MXMD.ModelStruct.Meshes.Meshes[meshId];
                 Structs.MeshVertexTable vertTbl = Mesh.VertexTables[MXMDMesh.VertTableIndex];
                 Structs.MeshFaceTable faceTbl = Mesh.FaceTables[MXMDMesh.FaceTableIndex];
 
                 MeshBuilder<VertexPositionNormal, VertexEmpty, VertexJoints16x4> meshBuilder = new MeshBuilder<VertexPositionNormal, VertexEmpty, VertexJoints16x4>($"mesh{meshId}{(App.LOD == -1 ? $"_LOD{MXMDMesh.LOD}_" : "")}{(lastMeshIdIdentical ? $"flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}" : "")}");
-                PrimitiveBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexJoints16x4> meshPrim = meshBuilder.UsePrimitive(nameToMat[MXMD.Materials[MXMDMesh.MaterialID].Name]);
+                PrimitiveBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexJoints16x4> meshPrim = meshBuilder.UsePrimitive((MXMD.Version == Int32.MaxValue ? new MaterialBuilder("NO_MATERIALS") : nameToMat[MXMD.Materials[MXMDMesh.MaterialID].Name]));
 
                 for (int j = 0; j < faceTbl.VertCount; j += 3)
                 {
@@ -1115,6 +1137,7 @@ namespace XBC2ModelDecomp
             foreach (Mesh m in meshes)
                 node.CreateNode().WithMesh(m);
 
+            App.PushLog("Writing .glb file...");
             model.SaveGLB($@"{App.CurOutputPath}\{App.CurFileNameNoExt + ".glb"}");
         }
 

@@ -19,10 +19,11 @@ namespace XBC2ModelDecomp
         public static string[] OutputPaths;
         public static int FileIndex;
 
-        public static string CurFilePath { get { return FilePaths[FileIndex]; } }
-        public static string CurFileName { get { return Path.GetFileName(FilePaths[FileIndex]); } }
-        public static string CurFileNameNoExt { get { return Path.GetFileNameWithoutExtension(FilePaths[FileIndex]); } }
+        public static string CurFile { get { return FilePaths[FileIndex]; } }
         public static string CurOutputPath { get { return OutputPaths[FileIndex]; } }
+        public static string CurFilePath { get { return Path.GetDirectoryName(FilePaths[FileIndex]); } }
+        public static string CurFileNameNoExt { get { return Path.GetFileNameWithoutExtension(FilePaths[FileIndex]); } }
+        public static string CurFilePathAndName { get { return $@"{CurFilePath}\{CurFileNameNoExt}"; } }
 
         public static bool ExportTextures;
         public static bool ExportFlexes;

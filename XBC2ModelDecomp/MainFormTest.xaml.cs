@@ -54,7 +54,7 @@ namespace XBC2ModelDecomp
 
         private void SelectFile(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog ofd = new OpenFileDialog { Filter = "Model Files (*.wimdo)|*.wimdo|Map Files (*.wismda)|*.wismda|All files (*.*)|*.*", Multiselect = true };
+            OpenFileDialog ofd = new OpenFileDialog { Filter = "Model Files (*.wismt)|*.wismt|Map Files (*.wismda)|*.wismda|All files (*.*)|*.*", Multiselect = true };
             if (ofd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 App.FilePaths = ofd.FileNames;

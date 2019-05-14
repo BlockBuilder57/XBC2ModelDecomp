@@ -18,20 +18,28 @@ namespace XBC2ModelDecomp
             App.PushLog($"Reading {Path.GetFileName(App.CurFilePath)}...");
 
             //wismt
-            FileStream fsWISMT = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wismt", FileMode.Open, FileAccess.Read);
+            FileStream fsWISMT = new FileStream(App.CurFilePathAndName + ".wismt", FileMode.Open, FileAccess.Read);
             BinaryReader brWISMT = new BinaryReader(fsWISMT);
 
             Structs.MSRD MSRD = ft.ReadMSRD(fsWISMT, brWISMT);
 
-            if (App.ExportAnims && File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".mot"))
+            if (App.ExportAnims)
             {
-                FileStream fsMOT = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".mot", FileMode.Open, FileAccess.Read);
-                BinaryReader brMOT = new BinaryReader(fsMOT);
+                if (File.Exists(App.CurFilePathAndName + ".mot"))
+                {
+                    foreach (string file in Directory.GetFiles(App.CurFilePath, $"{App.CurFileNameNoExt}*.mot"))
+                    {
+                        FileStream fsMOT = new FileStream(file, FileMode.Open, FileAccess.Read);
+                        BinaryReader brMOT = new BinaryReader(fsMOT);
 
-                Structs.SAR1 SAR1 = ft.ReadSAR1(fsMOT, brMOT, @"\Animations\", App.ExportAnims);
+                        Structs.SAR1 SAR1 = ft.ReadSAR1(fsMOT, brMOT, @"\Animations\", App.ExportAnims);
 
-                brMOT.Dispose();
-                fsMOT.Dispose();
+                        brMOT.Dispose();
+                        fsMOT.Dispose();
+                    }
+                }
+                else
+                    App.PushLog("No .mot file exists, continuing...");
             }
 
             //start mesh file
@@ -52,26 +60,14 @@ namespace XBC2ModelDecomp
 
                 Structs.Mesh Mesh = ft.ReadMesh(MSRD.TOC[0].Data, brCurFile);
 
-                if (!File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo"))
-                    return;
-                if (!File.Exists(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc"))
-                    return;
+                Structs.MXMD MXMD = new Structs.MXMD { Version = Int32.MaxValue };
+                if (File.Exists(App.CurFilePathAndName + ".wimdo"))
+                {
+                    FileStream fsWIMDO = new FileStream(App.CurFilePathAndName + ".wimdo", FileMode.Open, FileAccess.Read);
+                    BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
 
-                #region WIMDOReading
-                FileStream fsWIMDO = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".wimdo", FileMode.Open, FileAccess.Read);
-                BinaryReader brWIMDO = new BinaryReader(fsWIMDO);
-
-                Structs.MXMD MXMD = ft.ReadMXMD(fsWIMDO, brWIMDO);
-                #endregion WIMDOReading
-
-                #region ARCReading
-                FileStream fsARC = new FileStream(App.CurFilePath.Remove(App.CurFilePath.LastIndexOf('.')) + ".arc", FileMode.Open, FileAccess.Read);
-                BinaryReader brARC = new BinaryReader(fsARC);
-
-                Structs.SAR1 SAR1 = ft.ReadSAR1(fsARC, brARC, @"\RawFiles\", App.SaveRawFiles);
-                BinaryReader brSKEL = new BinaryReader(SAR1.ItemBySearch(".skl").Data);
-                Structs.SKEL SKEL = ft.ReadSKEL(brSKEL.BaseStream, brSKEL);
-                #endregion ARCReading
+                    MXMD = ft.ReadMXMD(fsWIMDO, brWIMDO);
+                }
 
                 if (App.ShowInfo)
                 {
@@ -80,21 +76,32 @@ namespace XBC2ModelDecomp
                     App.PushLog(MXMD.ToString());
                 }
 
+                Structs.SKEL SKEL = new Structs.SKEL { Unknown1 = Int32.MaxValue };
+                if (File.Exists(App.CurFilePathAndName + ".arc"))
+                {
+                    FileStream fsARC = new FileStream(App.CurFilePathAndName + ".arc", FileMode.Open, FileAccess.Read);
+                    BinaryReader brARC = new BinaryReader(fsARC);
+
+                    Structs.SAR1 SAR1 = ft.ReadSAR1(fsARC, brARC, @"\RawFiles\", App.SaveRawFiles);
+                    BinaryReader brSKEL = new BinaryReader(SAR1.ItemBySearch(".skl").Data);
+                    SKEL = ft.ReadSKEL(brSKEL.BaseStream, brSKEL);
+                }
+
                 switch (App.ExportFormat)
                 {
                     case Structs.ExportFormat.XNALara:
-                        ft.ModelToASCII(Mesh, MXMD, SKEL);
+                        ft.ModelToASCII(MSRD, Mesh, MXMD, SKEL);
                         break;
                     case Structs.ExportFormat.glTF:
-                        ft.ModelToGLTF(Mesh, MXMD, SKEL);
+                        ft.ModelToGLTF(MSRD, Mesh, MXMD, SKEL);
                         break;
                 }
 
-                App.PushLog($"Finished {Path.GetFileName(App.CurFilePath)}!\n");
+                App.PushLog($"Finished {App.CurFileNameNoExt}!");
             }
             else
             {
-                App.PushLog($"No files found in {Path.GetFileName(App.CurFilePath)}?\n");
+                App.PushLog($"No files found in {App.CurFilePathAndName}.wismt?");
             }
 
             brWISMT.Dispose();
