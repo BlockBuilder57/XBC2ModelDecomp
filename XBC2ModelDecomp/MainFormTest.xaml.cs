@@ -62,6 +62,9 @@ namespace XBC2ModelDecomp
                 for (int i = 0; i < App.FilePaths.Length; i++)
                     App.OutputPaths[i] = App.FilePaths[i].Remove(App.FilePaths[i].LastIndexOf('.'));
 
+                EXbtnOutput.IsEnabled = true;
+                EXbtnExtract.IsEnabled = true;
+
                 EXtxtOutput.Text = string.Join(", ", App.OutputPaths);
                 EXtxtInput.Text = string.Join(", ", App.FilePaths);
 
@@ -79,8 +82,9 @@ namespace XBC2ModelDecomp
                 fbd.InitialDirectory = App.OutputPaths[0].Remove(App.OutputPaths[0].LastIndexOf('\\'));
             if (fbd.ShowDialog() == CommonFileDialogResult.Ok)
             {
-                for (int i = 0; i < App.OutputPaths.Length; i++)
-                    App.OutputPaths[i] = fbd.FileName + $@"\{Path.GetFileNameWithoutExtension(App.FilePaths[i])}";
+                if (App.OutputPaths != null)
+                    for (int i = 0; i < App.OutputPaths.Length; i++)
+                        App.OutputPaths[i] = fbd.FileName + $@"\{Path.GetFileNameWithoutExtension(App.FilePaths[i])}";
                 EXtxtOutput.Text = fbd.FileName;
             }
         }

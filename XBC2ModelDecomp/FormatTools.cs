@@ -334,8 +334,6 @@ namespace XBC2ModelDecomp
             sLBIM.Seek(Offset + Size - 0x28, SeekOrigin.Begin);
             Structs.LBIM LBIM = new Structs.LBIM
             {
-                DataItem = dataItem,
-
                 Data = new MemoryStream(dataItem.Size),
 
                 Unknown5 = brLBIM.ReadInt32(),
@@ -978,7 +976,7 @@ namespace XBC2ModelDecomp
                     lastMeshIdIdenticalCount = 0;
 
                 int meshId = ValidMeshes[i];
-                Structs.MXMDMesh MXMDMesh = MXMD.Version == Int32.MaxValue ? default : MXMD.ModelStruct.Meshes.Meshes[meshId];
+                Structs.MXMDMesh MXMDMesh = MXMD.Version == Int32.MaxValue ? default(Structs.MXMDMesh) : MXMD.ModelStruct.Meshes.Meshes[meshId];
                 if (MXMDMesh.LOD == App.LOD || App.LOD == -1)
                 {
                     Structs.MeshVertexTable vertTbl = Mesh.VertexTables[MXMDMesh.VertTableIndex];
@@ -1107,7 +1105,7 @@ namespace XBC2ModelDecomp
 
                 int meshId = ValidMeshes[i];
 
-                Structs.MXMDMesh MXMDMesh = MXMD.Version == Int32.MaxValue ? default : MXMD.ModelStruct.Meshes.Meshes[meshId];
+                Structs.MXMDMesh MXMDMesh = MXMD.Version == Int32.MaxValue ? default(Structs.MXMDMesh) : MXMD.ModelStruct.Meshes.Meshes[meshId];
                 Structs.MeshVertexTable vertTbl = Mesh.VertexTables[MXMDMesh.VertTableIndex];
                 Structs.MeshFaceTable faceTbl = Mesh.FaceTables[MXMDMesh.FaceTableIndex];
 

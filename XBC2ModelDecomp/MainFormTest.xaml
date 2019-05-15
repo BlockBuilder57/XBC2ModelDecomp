@@ -30,7 +30,7 @@
 
                     <Label Content="Output Folder:" Grid.Column="0" Grid.Row="1" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Top" Height="18" Width="80" Padding="0"/>
                     <TextBox x:Name="EXtxtOutput" Grid.Column="0" Grid.Row="1" HorizontalAlignment="Left" Height="20" Margin="10,23,0,0" MaxLines="1" VerticalAlignment="Top" Width="440" IsReadOnly="True"/>
-                    <Button x:Name="EXbtnOutput" Content="Browse..." Grid.Column="1" Grid.Row="1" HorizontalAlignment="Left" Margin="0,23,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="SelectOutputDir"/>
+                    <Button x:Name="EXbtnOutput" Content="Browse..." Grid.Column="1" Grid.Row="1" HorizontalAlignment="Left" Margin="0,23,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="SelectOutputDir" IsEnabled="False"/>
 
                     <CheckBox x:Name="EXcbxTextures" Content="Save textures" ToolTip="Textures will be saved to the Textures folder." IsChecked="True" HorizontalAlignment="Left" Margin="10,0,0,0" Grid.Row="2" VerticalAlignment="Top"/>
                     <CheckBox x:Name="EXcbxAnims" Content="Save animations" ToolTip="Animations will be saved to the Animations folder." HorizontalAlignment="Left" Margin="110,0,0,0" Grid.Row="2" VerticalAlignment="Top"/>
@@ -47,7 +47,7 @@
                     <Label Content="Level of Detail:" Grid.Column="0" Grid.Row="3" HorizontalAlignment="Left" Margin="272,0,0,0" VerticalAlignment="Top" Height="15" Width="78" Padding="0"/>
                     <Slider x:Name="EXsldLOD" Grid.Column="0" Grid.Row="3" Margin="350,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Maximum="3" Minimum="-1" SmallChange="1" Value="0" Width="100" TickPlacement="BottomRight" Height="30" AutoToolTipPlacement="TopLeft" ValueChanged="EXsldLOD_ValueChanged"/>
 
-                    <Button x:Name="EXbtnExtract" Content="Extract" Grid.Column="1" Grid.Row="2" HorizontalAlignment="Left" Margin="0,6,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="ExtractFile"/>
+                    <Button x:Name="EXbtnExtract" Content="Extract" Grid.Column="1" Grid.Row="2" HorizontalAlignment="Left" Margin="0,6,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="ExtractFile" IsEnabled="False"/>
                     <CheckBox x:Name="EXcbxShowInfo" Content="Info" ToolTip="Each struct of the model will have its data outputted to the console." HorizontalAlignment="Left" Margin="0,30,0,0" Grid.Column="1" Grid.Row="2" VerticalAlignment="Top"/>
                 </Grid>
             </TabItem>

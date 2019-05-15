@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-using System.Text;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Media;
 
@@ -16,6 +16,45 @@ namespace XBC2ModelDecomp
             None,
             XNALara,
             glTF
+        }
+
+        public static string ReflectToString(object parent, int tabCount)
+        {
+            string output = "";
+
+            Type parentType = parent.GetType();
+            foreach (FieldInfo field in parentType.GetFields())
+            {
+                output += "\n";
+                for (int i = 0; i < tabCount; i++)
+                    output += "\t";
+                switch (field.FieldType.Name)
+                {
+                    case nameof(Int32):
+                    case nameof(UInt32):
+                    case nameof(Int16):
+                    case nameof(UInt16):
+                    case nameof(Byte):
+                    case nameof(SByte):
+                        output += $"{field.Name}: 0x{field.GetValue(parent):X} ({field.GetValue(parent)})";
+                        break;
+                    case nameof(String):
+                        output += $"{field.Name}: {field.GetValue(parent)}";
+                        break;
+                }
+
+                if (field.FieldType.IsArray)
+                {
+                    App.PushLog(field.FieldType.Name + " - " + field.FieldType.GetFields().Length);
+                    foreach (FieldInfo nestedField in field.FieldType.GetFields(BindingFlags.Public | BindingFlags.Instance))
+                    {
+                        App.PushLog("\t" + nestedField.Name);
+                        //output += ReflectToString(field.GetValue(parent), tabCount + 1);
+                    }
+                }
+            }
+
+            return output;
         }
 
         public struct XBC1
@@ -46,7 +85,7 @@ namespace XBC2ModelDecomp
 
         public struct LBIM //its reverse?
         {
-            public MSRDDataItem DataItem; //not in struc
+            public MSRDDataItem DataItem; //not in struct
 
             public MemoryStream Data;
 
@@ -100,8 +139,9 @@ namespace XBC2ModelDecomp
             public override string ToString()
             {
                 string output = "MSRD:";
+                output += ReflectToString(this, 1);
 
-                output += $"\n\tVersion: {Version}";
+                /*output += $"\n\tVersion: {Version}";
                 output += $"\n\tHeaderSize: 0x{HeaderSize:X}";
                 output += $"\n\tMainOffset: 0x{MainOffset:X}";
 
@@ -157,7 +197,7 @@ namespace XBC2ModelDecomp
                 }
                 output += $"\n\tTextureNames[{TextureNames.Length}]:";
                 for (int i = 0; i < TextureNames.Length; i++)
-                    output += $"\n\t\tItem {i}: {TextureNames[i]}";
+                    output += $"\n\t\tItem {i}: {TextureNames[i]}";*/
 
                 return output;
             }
@@ -789,6 +829,13 @@ namespace XBC2ModelDecomp
             public SARBC ItemBySearch(string search)
             {
                 return BCItems[Array.FindIndex(TOCItems, x => x.Filename.Contains(search))];
+            }
+
+            public override string ToString()
+            {
+                string output = "SAR1:";
+                output += ReflectToString(this, 1);
+                return output;
             }
         }
 

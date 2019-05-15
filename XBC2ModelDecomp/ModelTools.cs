@@ -69,22 +69,23 @@ namespace XBC2ModelDecomp
                     MXMD = ft.ReadMXMD(fsWIMDO, brWIMDO);
                 }
 
-                if (App.ShowInfo)
-                {
-                    App.PushLog(MSRD.ToString());
-                    App.PushLog(Mesh.ToString());
-                    App.PushLog(MXMD.ToString());
-                }
-
+                Structs.SAR1 SAR1 = new Structs.SAR1 { Version = Int32.MaxValue };
                 Structs.SKEL SKEL = new Structs.SKEL { Unknown1 = Int32.MaxValue };
                 if (File.Exists(App.CurFilePathAndName + ".arc"))
                 {
                     FileStream fsARC = new FileStream(App.CurFilePathAndName + ".arc", FileMode.Open, FileAccess.Read);
                     BinaryReader brARC = new BinaryReader(fsARC);
 
-                    Structs.SAR1 SAR1 = ft.ReadSAR1(fsARC, brARC, @"\RawFiles\", App.SaveRawFiles);
+                    SAR1 = ft.ReadSAR1(fsARC, brARC, @"\RawFiles\", App.SaveRawFiles);
                     BinaryReader brSKEL = new BinaryReader(SAR1.ItemBySearch(".skl").Data);
                     SKEL = ft.ReadSKEL(brSKEL.BaseStream, brSKEL);
+                }
+
+                if (App.ShowInfo)
+                {
+                    App.PushLog(MSRD.ToString());
+                    //App.PushLog(Mesh.ToString());
+                    //App.PushLog(MXMD.ToString());
                 }
 
                 switch (App.ExportFormat)
