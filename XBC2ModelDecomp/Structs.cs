@@ -25,9 +25,6 @@ namespace XBC2ModelDecomp
             Type parentType = parent.GetType();
             foreach (FieldInfo field in parentType.GetFields())
             {
-                output += "\n";
-                for (int i = 0; i < tabCount; i++)
-                    output += "\t";
                 switch (field.FieldType.Name)
                 {
                     case nameof(Int32):
@@ -36,21 +33,40 @@ namespace XBC2ModelDecomp
                     case nameof(UInt16):
                     case nameof(Byte):
                     case nameof(SByte):
+                        output += "\n";
+                        for (int i = 0; i < tabCount; i++)
+                            output += "\t";
                         output += $"{field.Name}: 0x{field.GetValue(parent):X} ({field.GetValue(parent)})";
                         break;
                     case nameof(String):
+                        output += "\n";
+                        for (int i = 0; i < tabCount; i++)
+                            output += "\t";
                         output += $"{field.Name}: {field.GetValue(parent)}";
+                        break;
+                    default:
+                        //output += $"({field.FieldType.Name}) {field.Name}: {field.GetValue(parent)}";
                         break;
                 }
 
                 if (field.FieldType.IsArray)
                 {
-                    App.PushLog(field.FieldType.Name + " - " + field.FieldType.GetFields().Length);
-                    foreach (FieldInfo nestedField in field.FieldType.GetFields(BindingFlags.Public | BindingFlags.Instance))
+                    //string arrays and number arrays are affected by this, please fix
+                    Array array = field.GetValue(parent) as Array;
+                    output += "\n";
+                    for (int i = 0; i < tabCount; i++)
+                        output += "\t";
+
+                    output += $"{field.Name}[{array.Length}]:";
+                    for (int i = 0; i < array.Length; i++)
                     {
-                        App.PushLog("\t" + nestedField.Name);
-                        //output += ReflectToString(field.GetValue(parent), tabCount + 1);
+                        output += "\n";
+                        for (int j = 0; j < tabCount + 1; j++)
+                            output += "\t";
+                        output += $"Item {i}:";
+                        output += ReflectToString(array.GetValue(i), tabCount + 2);
                     }
+                        
                 }
             }
 

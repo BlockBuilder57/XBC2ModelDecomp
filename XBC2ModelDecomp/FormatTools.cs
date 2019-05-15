@@ -826,8 +826,8 @@ namespace XBC2ModelDecomp
                         Unknown1 = brMesh.ReadInt16(),
                         Type = brMesh.ReadInt16()
                     };
-                    Mesh.MorphData.MorphTargets[i].Vertices = new Vector3[Mesh.MorphData.MorphTargets[0].VertCount];
-                    Mesh.MorphData.MorphTargets[i].Normals = new Quaternion[Mesh.MorphData.MorphTargets[0].VertCount];
+                    Mesh.MorphData.MorphTargets[i].Vertices = new Vector3[Mesh.MorphData.MorphTargets.Max(x => x.VertCount)];
+                    Mesh.MorphData.MorphTargets[i].Normals = new Quaternion[Mesh.MorphData.MorphTargets.Max(x => x.VertCount)];
                 }
             }
 
@@ -910,6 +910,9 @@ namespace XBC2ModelDecomp
 
                 for (int j = 1; j < Mesh.MorphData.MorphDescriptors[i].TargetCounts; j++)
                 {
+                    Mesh.MorphData.MorphTargets[desc.TargetIndex + j].Vertices = new Vector3[Mesh.MorphData.MorphTargets[desc.TargetIndex].VertCount];
+                    Mesh.MorphData.MorphTargets[desc.TargetIndex + j].Normals = new Quaternion[Mesh.MorphData.MorphTargets[desc.TargetIndex].VertCount];
+
                     sMesh.Seek(Mesh.DataOffset + Mesh.MorphData.MorphTargets[desc.TargetIndex + j].BufferOffset, SeekOrigin.Begin);
                     for (int k = 0; k < Mesh.MorphData.MorphTargets[desc.TargetIndex + j].VertCount; k++)
                     {
@@ -983,7 +986,7 @@ namespace XBC2ModelDecomp
                     Structs.MeshFaceTable faceTbl = Mesh.FaceTables[MXMDMesh.FaceTableIndex];
                     Structs.MeshMorphDescriptor desc = new Structs.MeshMorphDescriptor();
                     if (App.ExportFlexes && Mesh.MorphDataOffset > 0)
-                        Mesh.MorphData.MorphDescriptors.Where(x => x.BufferID == MXMDMesh.VertTableIndex).FirstOrDefault();
+                        desc = Mesh.MorphData.MorphDescriptors.Where(x => x.BufferID == MXMDMesh.VertTableIndex).FirstOrDefault();
 
                     int highestVertId = 0;
                     int lowestVertId = vertTbl.DataCount;
@@ -1023,6 +1026,8 @@ namespace XBC2ModelDecomp
 
                         //vertex normal
                         Quaternion normalPos = vertTbl.Normals[vrtIndex];
+                        if (lastMeshIdIdentical)
+                            normalPos += Mesh.MorphData.MorphTargets[desc.TargetIndex + lastMeshIdIdenticalCount + 1].Normals[vrtIndex];
                         asciiWriter.Write($"{normalPos.X:F6} ");
                         asciiWriter.Write($"{normalPos.Y:F6} ");
                         asciiWriter.Write($"{normalPos.Z:F6}");

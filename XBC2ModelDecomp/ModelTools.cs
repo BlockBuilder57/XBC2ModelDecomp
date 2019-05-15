@@ -15,7 +15,7 @@ namespace XBC2ModelDecomp
 
         public ModelTools()
         {
-            App.PushLog($"Reading {Path.GetFileName(App.CurFilePath)}...");
+            App.PushLog($"Reading {App.CurFileNameNoExt}...");
 
             //wismt
             FileStream fsWISMT = new FileStream(App.CurFilePathAndName + ".wismt", FileMode.Open, FileAccess.Read);
