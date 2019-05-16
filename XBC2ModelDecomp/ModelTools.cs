@@ -84,8 +84,8 @@ namespace XBC2ModelDecomp
                 if (App.ShowInfo)
                 {
                     App.PushLog(MSRD.ToString());
-                    //App.PushLog(Mesh.ToString());
-                    //App.PushLog(MXMD.ToString());
+                    App.PushLog(Mesh.ToString());
+                    App.PushLog(MXMD.ToString());
                 }
 
                 switch (App.ExportFormat)

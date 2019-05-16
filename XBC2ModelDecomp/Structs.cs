@@ -18,55 +18,95 @@ namespace XBC2ModelDecomp
             glTF
         }
 
-        public static string ReflectToString(object parent, int tabCount)
+        public static string ReflectToString(object parent, int tabCount = 1)
         {
             string output = "";
 
             Type parentType = parent.GetType();
+            
             foreach (FieldInfo field in parentType.GetFields())
             {
-                switch (field.FieldType.Name)
+                object value = field.GetValue(parent);
+
+                if (value is int || value is uint ||
+                    value is short || value is ushort ||
+                    value is byte || value is sbyte)
                 {
-                    case nameof(Int32):
-                    case nameof(UInt32):
-                    case nameof(Int16):
-                    case nameof(UInt16):
-                    case nameof(Byte):
-                    case nameof(SByte):
-                        output += "\n";
-                        for (int i = 0; i < tabCount; i++)
-                            output += "\t";
-                        output += $"{field.Name}: 0x{field.GetValue(parent):X} ({field.GetValue(parent)})";
-                        break;
-                    case nameof(String):
-                        output += "\n";
-                        for (int i = 0; i < tabCount; i++)
-                            output += "\t";
-                        output += $"{field.Name}: {field.GetValue(parent)}";
-                        break;
-                    default:
-                        //output += $"({field.FieldType.Name}) {field.Name}: {field.GetValue(parent)}";
-                        break;
+                    output += "\n";
+                    for (int i = 0; i < tabCount; i++)
+                        output += "\t";
+                    output += $"{field.Name}: 0x{value:X} ({value})";
+                }
+                else if (value is string)
+                {
+                    output += "\n";
+                    for (int i = 0; i < tabCount; i++)
+                        output += "\t";
+                    output += $"{field.Name}: {value}";
                 }
 
-                if (field.FieldType.IsArray)
+                if (field.FieldType.IsEnum)
                 {
-                    //string arrays and number arrays are affected by this, please fix
-                    Array array = field.GetValue(parent) as Array;
                     output += "\n";
                     for (int i = 0; i < tabCount; i++)
                         output += "\t";
 
-                    output += $"{field.Name}[{array.Length}]:";
-                    for (int i = 0; i < array.Length; i++)
+                    object enumValue = Enum.Parse(field.FieldType, value.ToString());
+
+                    output += $"{field.Name}: {enumValue} ({Convert.ToInt32(enumValue)})";
+                }
+
+                if (field.FieldType.IsArray)
+                {
+                    Array array = field.GetValue(parent) as Array;
+
+                    output += "\n";
+                    for (int i = 0; i < tabCount; i++)
+                        output += "\t";
+
+                    output += $"{field.Name}[{array.Length}]: ";
+
+                    if (array.Rank > 1 || array.Length > 100 || array is Vector3[] || array is Quaternion[] || array is Color[])
+                        continue;
+
+                    if (array is byte[])
                     {
-                        output += "\n";
-                        for (int j = 0; j < tabCount + 1; j++)
-                            output += "\t";
-                        output += $"Item {i}:";
-                        output += ReflectToString(array.GetValue(i), tabCount + 2);
+                        output += $"0x{BitConverter.ToString(array as byte[]).Replace("-", "")}";
                     }
-                        
+                    else
+                    {
+                        for (int i = 0; i < array.Length; i++)
+                        {
+                            output += "\n";
+                            for (int j = 0; j < tabCount + 1; j++)
+                                output += "\t";
+
+                            if (field.FieldType.Namespace == "XBC2ModelDecomp")
+                            {
+                                output += $"Item {i}:";
+                                output += ReflectToString(array.GetValue(i), tabCount + 2);
+                            }
+                            else
+                            {
+                                switch (array.GetValue(i).GetType().Name)
+                                {
+                                    case nameof(Int32):
+                                    case nameof(UInt32):
+                                    case nameof(Int16):
+                                    case nameof(UInt16):
+                                        output += $"Item {i}: 0x{array.GetValue(i):X} ({array.GetValue(i)})";
+                                        break;
+                                    case nameof(String):
+                                        output += $"Item {i}: {array.GetValue(i)}";
+                                        break;
+                                    default:
+                                        //output += $"({field.FieldType.Name}) {field.Name}: {field.GetValue(parent)}";
+                                        break;
+                                }
+
+                            }
+                        }
+                    }
                 }
             }
 
@@ -155,66 +195,7 @@ namespace XBC2ModelDecomp
             public override string ToString()
             {
                 string output = "MSRD:";
-                output += ReflectToString(this, 1);
-
-                /*output += $"\n\tVersion: {Version}";
-                output += $"\n\tHeaderSize: 0x{HeaderSize:X}";
-                output += $"\n\tMainOffset: 0x{MainOffset:X}";
-
-                output += $"\n\n\tTag: {Tag}";
-                output += $"\n\tRevision: {Revision}";
-
-                output += $"\n\n\tDataItemsCount: {DataItemsCount}";
-                output += $"\n\tDataItemsOffset: {DataItemsOffset}";
-                output += $"\n\tFileCount: {FileCount}";
-                output += $"\n\tTOCOffset: 0x{TOCOffset:X}";
-
-                output += $"\n\n\tUnknown1: 0x{BitConverter.ToString(Unknown1).Replace("-", "")}";
-
-                output += $"\n\n\tTextureIdsCount: {TextureIdsCount}";
-                output += $"\n\tTextureIdsOffset: 0{TextureIdsOffset:X}";
-                output += $"\n\tTextureCountOffset: 0x{TextureCountOffset:X}";
-
-                output += $"\n\n\tDataItems[{DataItems.Length}]:";
-                for (int i = 0; i < DataItems.Length; i++)
-                {
-                    output += $"\n\t\tItem {i}:";
-                    output += $"\n\t\t\tOffset: 0x{DataItems[i].Offset:X}";
-                    output += $"\n\t\t\tSize: 0x{DataItems[i].Size:X}";
-                    output += $"\n\t\t\tTOCIndex: {DataItems[i].TOCIndex}";
-                    output += $"\n\t\t\tType: {DataItems[i].Type} ({(int)DataItems[i].Type})";
-                }
-
-                output += $"\n\tTOC[{TOC.Length}]:";
-                for (int i = 0; i < TOC.Length; i++)
-                {
-                    output += $"\n\t\tItem {i}:";
-                    output += $"\n\t\t\tCompSize: 0x{TOC[i].CompSize:X}";
-                    output += $"\n\t\t\tFileSize: 0x{TOC[i].FileSize:X}";
-                    output += $"\n\t\t\tOffset: 0x{TOC[i].Offset:X}";
-                }
-
-                output += $"\n\n\tTextureIds[{TextureIds.Length}]:";
-                for (int i = 0; i < TextureIds.Length; i++)
-                    output += $"\n\t\tItem {i}: {TextureIds[i]}";
-
-                output += $"\n\tTextureCount: {TextureCount}";
-                output += $"\n\tTextureChunkSize: 0x{TextureChunkSize:X}";
-                output += $"\n\tUnknown2: {Unknown2}";
-                output += $"\n\tTextureStringBufferOffset: 0x{TextureStringBufferOffset:X}";
-                output += $"\n\tTextureInfo[{TextureInfo.Length}]:";
-                for (int i = 0; i < TextureInfo.Length; i++)
-                {
-                    output += $"\n\t\tItem {i}:";
-                    output += $"\n\t\t\tUnknown1: 0x{TextureInfo[i].Unknown1:X}";
-                    output += $"\n\t\t\tSize: 0x{TextureInfo[i].Size:X}";
-                    output += $"\n\t\t\tOffset: 0x{TextureInfo[i].Offset:X}";
-                    output += $"\n\t\t\tStringOffset: 0x{TextureInfo[i].StringOffset:X}";
-                }
-                output += $"\n\tTextureNames[{TextureNames.Length}]:";
-                for (int i = 0; i < TextureNames.Length; i++)
-                    output += $"\n\t\tItem {i}: {TextureNames[i]}";*/
-
+                output += ReflectToString(this);
                 return output;
             }
         }
@@ -295,113 +276,7 @@ namespace XBC2ModelDecomp
             public override string ToString()
             {
                 string output = "Mesh:";
-
-                output += $"\n\tVertexTableOffset: 0x{VertexTableOffset:X}";
-                output += $"\n\tVertexTableCount: {VertexTableCount}";
-                output += $"\n\tFaceTableOffset: 0x{FaceTableOffset:X}";
-                output += $"\n\tFaceTableCount: {FaceTableCount}";
-
-                output += $"\n\n\tReserved1: 0x{BitConverter.ToString(Reserved1).Replace("-", "")}";
-
-                output += $"\n\n\tUnknownOffset1: 0x{UnknownOffset1:X}";
-                output += $"\n\tUnknownOffset2: 0x{UnknownOffset2:X}";
-                output += $"\n\tUnknownOffset2Count: {UnknownOffset2Count}";
-
-                output += $"\n\n\tMorphDataOffset: 0x{MorphDataOffset:X}";
-                output += $"\n\tDataSize: 0x{DataSize:X}";
-                output += $"\n\tDataOffset: 0x{DataOffset:X}";
-                output += $"\n\tWeightDataSize: 0x{WeightDataSize:X}";
-                output += $"\n\tWeightDataOffset: 0x{WeightDataOffset:X}";
-
-                output += $"\n\n\tReserved2: 0x{BitConverter.ToString(Reserved2).Replace("-", "")}";
-
-                output += $"\n\n\tVertexTables[{VertexTableCount}]:";
-                for (int i = 0; i < VertexTableCount; i++)
-                {
-                    output += $"\n\t\tItem {i}:";
-                    output += $"\n\t\t\tDataOffset 0x{VertexTables[i].DataOffset:X}";
-                    output += $"\n\t\t\tDataCount {VertexTables[i].DataCount}";
-                    output += $"\n\t\t\tBlockSize 0x{VertexTables[i].BlockSize:X}";
-
-                    output += $"\n\n\t\t\tDescOffset 0x{VertexTables[i].DescOffset:X}";
-                    output += $"\n\t\t\tDescCount {VertexTables[i].DescCount}";
-
-                    output += $"\n\n\t\t\tUnknown1: 0x{BitConverter.ToString(VertexTables[i].Unknown1).Replace("-", "")}";
-                }
-                output += $"\n\tFaceTables[{FaceTableCount}]:";
-                for (int i = 0; i < FaceTableCount; i++)
-                {
-                    output += $"\n\t\tItem {i}:";
-                    output += $"\n\t\t\tOffset 0x{FaceTables[i].Offset:X}";
-                    output += $"\n\t\t\tVertCount {FaceTables[i].VertCount}";
-
-                    output += $"\n\n\t\t\tUnknown1: 0x{BitConverter.ToString(FaceTables[i].Unknown1).Replace("-", "")}";
-                }
-
-                //output += $"\n\n\tReserved3: 0x{BitConverter.ToString(Reserved3).Replace("-", "")}";
-
-                output += $"\n\n\tVertexDescriptors[{VertexDescriptors.Count}]:";
-                for (int i = 0; i < VertexDescriptors.Count; i++)
-                {
-                    output += $"\n\t\tItem {i}:";
-                    output += $"\n\t\t\tType {VertexDescriptors[i].Type}";
-                    output += $"\n\t\t\tSize 0x{VertexDescriptors[i].Size:X}";
-                }
-
-                output += $"\n\n\tWeightData:";
-                output += $"\n\t\tWeightManagerCount: {WeightData.WeightManagerCount}";
-                output += $"\n\t\tWeightManagerOffset: 0x{WeightData.WeightManagerOffset:X}";
-
-                output += $"\n\n\t\tVertexTableIndex: {WeightData.VertexTableIndex}";
-                output += $"\n\t\tUnknown2: 0x{WeightData.Unknown2:X}";
-
-                output += $"\n\n\t\tOffset02: 0x{WeightData.Offset02:X}";
-
-                output += $"\n\n\t\tWeightManagers[{WeightData.WeightManagerCount}]:";
-                for (int i = 0; i < WeightData.WeightManagerCount; i++)
-                {
-                    output += $"\n\t\t\tItem {i}:";
-                    output += $"\n\t\t\t\tUnknown1: 0x{WeightData.WeightManagers[i].Unknown1:X}";
-                    output += $"\n\t\t\t\tOffset: 0x{WeightData.WeightManagers[i].Offset:X}";
-                    output += $"\n\t\t\t\tCount: {WeightData.WeightManagers[i].Count}";
-
-                    output += $"\n\n\t\t\t\tUnknown2: 0x{BitConverter.ToString(WeightData.WeightManagers[i].Unknown2).Replace("-", "")}";
-                    output += $"\n\t\t\t\tLOD: 0x{WeightData.WeightManagers[i].LOD:X}";
-                    output += $"\n\t\t\t\tUnknown3: 0x{BitConverter.ToString(WeightData.WeightManagers[i].Unknown3).Replace("-", "")}";
-                }
-
-                output += $"\n\n\tMorphData:";
-                output += $"\n\t\tMorphDescriptorsCount: {MorphData.MorphDescriptorsCount}";
-                output += $"\n\t\tMorphDescriptorsOffset: 0x{MorphData.MorphDescriptorsOffset:X}";
-
-                output += $"\n\n\t\tMorphDescriptors[{MorphData.MorphDescriptorsCount}]:";
-                for (int i = 0; i < MorphData.MorphDescriptorsCount; i++)
-                {
-                    output += $"\n\t\t\tItem {i}:";
-                    output += $"\n\t\t\t\tBufferID: {MorphData.MorphDescriptors[i].BufferID}";
-
-                    output += $"\n\n\t\t\t\tTargetIndex: {MorphData.MorphDescriptors[i].TargetIndex}";
-                    output += $"\n\t\t\t\tTargetCounts: {MorphData.MorphDescriptors[i].TargetCounts}";
-                    output += $"\n\t\t\t\tTargetIDOffsets: 0x{MorphData.MorphDescriptors[i].TargetIDOffsets:X}";
-
-                    output += $"\n\n\t\t\t\tUnknown1: 0x{MorphData.MorphDescriptors[i].Unknown1:X}";
-                }
-
-                output += $"\n\n\t\tMorphTargetsCount: {MorphData.MorphTargetsCount}";
-                output += $"\n\t\tMorphTargetsOffset: 0x{MorphData.MorphTargetsOffset:X}";
-
-                output += $"\n\n\t\tMorphTargets[{MorphData.MorphTargetsCount}]:";
-                for (int i = 0; i < MorphData.MorphTargetsCount; i++)
-                {
-                    output += $"\n\t\t\tItem {i}:";
-                    output += $"\n\t\t\t\tBufferOffset: 0x{MorphData.MorphTargets[i].BufferOffset:X}";
-                    output += $"\n\t\t\t\tVertCount: {MorphData.MorphTargets[i].VertCount}";
-                    output += $"\n\t\t\t\tBlockSize: 0x{MorphData.MorphTargets[i].BlockSize:X}";
-
-                    output += $"\n\n\t\t\t\tUnknown1: {MorphData.MorphTargets[i].Unknown1}";
-                    output += $"\n\t\t\t\tType: {MorphData.MorphTargets[i].Type}";
-                }
-
+                output += ReflectToString(this);
                 return output;
             }
         }
@@ -537,148 +412,7 @@ namespace XBC2ModelDecomp
             public override string ToString()
             {
                 string output = "MXMD:";
-
-                output += $"\n\tVersion: {Version}";
-
-                output += $"\n\n\tModelStructOffset: 0x{ModelStructOffset:X}";
-                output += $"\n\tMaterialsOffset: 0x{MaterialsOffset:X}";
-
-                output += $"\n\n\tUnknown1: 0x{Unknown1:X}";
-
-                output += $"\n\n\tVertexBufferOffset: 0x{VertexBufferOffset:X}";
-                output += $"\n\tShadersOffset: 0x{ShadersOffset:X}";
-                output += $"\n\tCachedTexturesTableOffset: 0x{CachedTexturesTableOffset:X}";
-                output += $"\n\tUnknown2: 0x{Unknown2:X}";
-                output += $"\n\tUncachedTexturesTableOffset: 0x{UncachedTexturesTableOffset:X}";
-
-                output += $"\n\n\tUnknown3: 0x{BitConverter.ToString(Unknown3).Replace("-", "")}";
-
-                output += $"\n\n\tModelStruct:";
-                output += $"\n\t\tUnknown1: 0x{ModelStruct.Unknown1:X}";
-                output += $"\n\t\tBoundingBoxStart: {ModelStruct.BoundingBoxStart:F6}";
-                output += $"\n\t\tBoundingBoxEnd: {ModelStruct.BoundingBoxEnd:F6}";
-                output += $"\n\t\tMeshesOffset: 0x{ModelStruct.MeshesOffset:X}";
-                output += $"\n\t\tUnknown2: 0x{ModelStruct.Unknown2:X}";
-                output += $"\n\t\tUnknown3: 0x{ModelStruct.Unknown3:X}";
-                output += $"\n\t\tNodesOffset: 0x{ModelStruct.NodesOffset:X}";
-
-                output += $"\n\n\t\tUnknown4: 0x{BitConverter.ToString(ModelStruct.Unknown4).Replace("-", "")}";
-
-                output += $"\n\n\t\tMorphControllersOffset: 0x{ModelStruct.MorphControllersOffset:X}";
-                output += $"\n\t\tMorphNamesOffset: 0x{ModelStruct.MorphNamesOffset:X}";
-
-
-                output += $"\n\n\t\tMorphControls:";
-                output += $"\n\t\t\tTableOffset: 0x{ModelStruct.MorphControls.TableOffset:X}";
-                output += $"\n\t\t\tCount: {ModelStruct.MorphControls.Count}";
-
-                if (ModelStruct.MorphControls.Count == 0)
-                    output += $"\n\n\t\t\tUnknown2: 0x";
-                else
-                    output += $"\n\n\t\t\tUnknown2: 0x{BitConverter.ToString(ModelStruct.MorphControls.Unknown2).Replace("-", "")}";
-
-                output += $"\n\n\t\t\tControls[{ModelStruct.MorphControls.Count}]:";
-                for (int i = 0; i < ModelStruct.MorphControls.Count; i++)
-                {
-                    output += $"\n\t\t\t\tItem {i}:";
-                    output += $"\n\t\t\t\t\tNameOffset1: 0x{ModelStruct.MorphControls.Controls[i].NameOffset1:X}";
-                    output += $"\n\t\t\t\t\tNameOffset2: 0x{ModelStruct.MorphControls.Controls[i].NameOffset2:X}";
-                }
-
-
-                output += $"\n\n\t\tMorphNames:";
-                output += $"\n\t\t\tTableOffset: 0x{ModelStruct.MorphNames.TableOffset:X}";
-                output += $"\n\t\t\tCount: {ModelStruct.MorphNames.Count}";
-
-                //output += $"\n\n\t\t\tUnknown2: 0x{BitConverter.ToString(ModelStruct.MorphNames.Unknown2).Replace("-", "")}";
-
-                output += $"\n\n\t\t\tNames[{ModelStruct.MorphNames.Count}]:";
-                for (int i = 0; i < ModelStruct.MorphNames.Count; i++)
-                {
-                    output += $"\n\t\t\t\tItem {i}:";
-                    output += $"\n\t\t\t\t\tNameOffset: 0x{ModelStruct.MorphNames.Names[i].NameOffset:X}";
-                    output += $"\n\t\t\t\t\tUnknown1: 0x{ModelStruct.MorphNames.Names[i].Unknown1:X}";
-                    output += $"\n\t\t\t\t\tUnknown2: 0x{ModelStruct.MorphNames.Names[i].Unknown2:X}";
-                    output += $"\n\t\t\t\t\tUnknown3: 0x{ModelStruct.MorphNames.Names[i].Unknown3:X}";
-
-                    output += $"\n\n\t\t\t\t\tName: {ModelStruct.MorphNames.Names[i].Name}";
-                }
-
-
-                output += $"\n\n\t\tMeshes:";
-                output += $"\n\t\t\tTableOffset: 0x{ModelStruct.Meshes.TableOffset:X}";
-                output += $"\n\t\t\tTableCount: {ModelStruct.Meshes.TableCount}";
-                output += $"\n\t\t\tUnknown1: 0x{ModelStruct.Meshes.Unknown1:X}";
-
-                output += $"\n\n\t\t\tBoundingBoxStart: {ModelStruct.Meshes.BoundingBoxStart:F6}";
-                output += $"\n\t\t\tBoundingBoxEnd: {ModelStruct.Meshes.BoundingBoxEnd:F6}";
-                output += $"\n\t\t\tBoundingRadius: {ModelStruct.Meshes.BoundingRadius}";
-
-                output += $"\n\n\t\t\tMeshes[{ModelStruct.Meshes.TableCount}]:";
-                for (int i = 0; i < ModelStruct.Meshes.TableCount; i++)
-                {
-                    output += $"\n\t\t\t\tItem {i}:";
-                    output += $"\n\t\t\t\t\tID: {ModelStruct.Meshes.Meshes[i].ID}";
-                    output += $"\n\t\t\t\t\tDescriptor: {ModelStruct.Meshes.Meshes[i].Descriptor}";
-
-                    output += $"\n\n\t\t\t\t\tVertTableIndex: {ModelStruct.Meshes.Meshes[i].VertTableIndex}";
-                    output += $"\n\t\t\t\t\tFaceTableIndex: {ModelStruct.Meshes.Meshes[i].FaceTableIndex}";
-
-                    output += $"\n\n\t\t\t\t\tUnknown1: {ModelStruct.Meshes.Meshes[i].Unknown1}";
-                    output += $"\n\t\t\t\t\tMaterialID: {ModelStruct.Meshes.Meshes[i].MaterialID}";
-                    output += $"\n\t\t\t\t\tUnknown2: 0x{BitConverter.ToString(ModelStruct.Meshes.Meshes[i].Unknown2).Replace("-", "")}";
-                    output += $"\n\t\t\t\t\tUnknown3: {ModelStruct.Meshes.Meshes[i].Unknown3}";
-
-                    output += $"\n\n\t\t\t\t\tLOD: {ModelStruct.Meshes.Meshes[i].LOD}";
-                    output += $"\n\t\t\t\t\tUnknown4: 0x{ModelStruct.Meshes.Meshes[i].Unknown4:X}";
-
-                    output += $"\n\n\t\t\t\t\tUnknown5: 0x{BitConverter.ToString(ModelStruct.Meshes.Meshes[i].Unknown5).Replace("-", "")}";
-                }
-
-
-                output += $"\n\n\t\tNodes:";
-                output += $"\n\t\t\tBoneCount: {ModelStruct.Nodes.BoneCount}";
-                output += $"\n\t\t\tBoneCount2: {ModelStruct.Nodes.BoneCount2}";
-
-                output += $"\n\n\t\t\tNodeIdsOffset: 0x{ModelStruct.Nodes.NodeIdsOffset:X}";
-                output += $"\n\t\t\tNodeTmsOffset: 0x{ModelStruct.Nodes.NodeTmsOffset:X}";
-
-                output += $"\n\n\t\t\tNodes[{ModelStruct.Nodes.BoneCount}]:";
-                for (int i = 0; i < ModelStruct.Nodes.BoneCount; i++)
-                {
-                    output += $"\n\t\t\t\tItem {i}:";
-                    output += $"\n\t\t\t\t\tNameOffset: 0x{ModelStruct.Nodes.Nodes[i].NameOffset:X}";
-                    output += $"\n\t\t\t\t\tUnknown1: {ModelStruct.Nodes.Nodes[i].Unknown1}f";
-                    output += $"\n\t\t\t\t\tUnknown2: {ModelStruct.Nodes.Nodes[i].Unknown2}";
-
-                    output += $"\n\n\t\t\t\t\tID: {ModelStruct.Nodes.Nodes[i].ID}";
-                    output += $"\n\t\t\t\t\tUnknown3: {ModelStruct.Nodes.Nodes[i].Unknown3}";
-                    output += $"\n\t\t\t\t\tUnknown4: {ModelStruct.Nodes.Nodes[i].Unknown4}";
-
-                    output += $"\n\n\t\t\t\t\tName: {ModelStruct.Nodes.Nodes[i].Name}";
-
-                    output += $"\n\n\t\t\t\t\tScale: {ModelStruct.Nodes.Nodes[i].Scale:F6}";
-                    output += $"\n\t\t\t\t\tRotation: {ModelStruct.Nodes.Nodes[i].Rotation:F6}";
-                    output += $"\n\t\t\t\t\tPosition: {ModelStruct.Nodes.Nodes[i].Position:F6}";
-
-                    output += $"\n\n\t\t\t\t\tParentTransform: {ModelStruct.Nodes.Nodes[i].ParentTransform:F6}";
-                }
-
-                output += $"\n\n\tMaterialHeader:";
-                output += $"\n\t\tOffset: 0x{MaterialHeader.Offset:X}";
-                output += $"\n\t\tCount: {MaterialHeader.Count}";
-
-                output += $"\n\n\tMaterials[{MaterialHeader.Count}]:";
-                for (int i = 0; i < MaterialHeader.Count; i++)
-                {
-                    output += $"\n\t\tItem {i}:";
-                    output += $"\n\t\t\tNameOffset: 0x{Materials[i].NameOffset:X}";
-
-                    output += $"\n\n\t\t\tUnknown1: 0x{BitConverter.ToString(Materials[i].Unknown1).Replace("-", "")}";
-
-                    output += $"\n\n\t\t\tName: {Materials[i].Name}";
-                }
-
+                output += ReflectToString(this);
                 return output;
             }
         }
@@ -850,7 +584,7 @@ namespace XBC2ModelDecomp
             public override string ToString()
             {
                 string output = "SAR1:";
-                output += ReflectToString(this, 1);
+                output += ReflectToString(this);
                 return output;
             }
         }
@@ -886,6 +620,13 @@ namespace XBC2ModelDecomp
             public SKELTransforms[] Transforms;
 
             public Dictionary<string, int> NodeNames; //not in struct
+
+            public override string ToString()
+            {
+                string output = "SAR1:";
+                output += ReflectToString(this);
+                return output;
+            }
         }
 
         public struct SKELTOC
