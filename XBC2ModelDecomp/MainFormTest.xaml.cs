@@ -16,6 +16,7 @@ using System.Windows.Navigation;
 using System.Threading;
 using System.Reflection;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using System.Globalization;
 
 namespace XBC2ModelDecomp
 {
@@ -28,6 +29,10 @@ namespace XBC2ModelDecomp
         {
             InitializeComponent();
             App.LogEvent += LogEvent;
+
+            CultureInfo culture = CultureInfo.CreateSpecificCulture("en-US");
+            Thread.CurrentThread.CurrentCulture = culture;
+            Thread.CurrentThread.CurrentUICulture = culture;
 
             string[] Quotes =
             {
