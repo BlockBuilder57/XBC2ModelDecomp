@@ -91,10 +91,10 @@ namespace XBC2ModelDecomp
                 switch (App.ExportFormat)
                 {
                     case Structs.ExportFormat.XNALara:
-                        ft.ModelToASCII(MSRD, Mesh, MXMD, SKEL);
+                        ft.ModelToASCII(Mesh, MXMD, SKEL);
                         break;
                     case Structs.ExportFormat.glTF:
-                        ft.ModelToGLTF(MSRD, Mesh, MXMD, SKEL);
+                        ft.ModelToGLTF(Mesh, MXMD, SKEL);
                         break;
                 }
 

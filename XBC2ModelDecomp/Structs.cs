@@ -660,5 +660,62 @@ namespace XBC2ModelDecomp
         {
             public XBC1[] Files;
         }
+
+        //winvhe
+        public struct NVMS
+        {
+            public int Unknown1; //version?
+
+            public int NVDATableOffset;
+            public int NVDATableCount;
+
+            public int Table2Offset;
+            public int Table2Count;
+            public int Table3Offset;
+            public int Table3Count;
+
+            public byte[] Reserved1; //0x20 long
+
+            public NVMSNVDA[] NVDAs;
+        }
+
+        public struct NVMSNVDA
+        {
+            public int Unknown1;
+            public int NVDAOffset;
+            public int Unknown2;
+            public int SecondFileOffset;
+        }
+
+        public struct MapInfo
+        {
+            public byte[] Unknown1; //0xC long
+
+            public int MeshTableOffset;
+            public int MaterialTableOffset;
+
+            public byte[] Unknown2; //0x24 long
+
+            public int TableIndexOffset;
+
+            //the rest of these will be all over the place
+
+            public int MeshTableDataOffset;
+            public int MeshTableDataCount;
+
+            public int TableIndexOffset2;
+
+            public short[] SomeVarietyOfOffsets;
+
+            public MapInfoMeshTable[] MeshTables;
+        }
+
+        public struct MapInfoMeshTable
+        {
+            public int MeshOffset;
+            public int MeshCount;
+
+            public MXMDMesh[] Meshes;
+        }
     }
 }

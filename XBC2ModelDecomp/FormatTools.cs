@@ -931,7 +931,72 @@ namespace XBC2ModelDecomp
             return Mesh;
         }
 
-        public void ModelToASCII(Structs.MSRD MSRD, Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
+        public Structs.MapInfo ReadMapInfo(Stream sMap, BinaryReader brMap)
+        {
+            Structs.MapInfo map = new Structs.MapInfo
+            {
+                Unknown1 = brMap.ReadBytes(0xC),
+
+                MeshTableOffset = brMap.ReadInt32(),
+                MaterialTableOffset = brMap.ReadInt32(),
+
+                Unknown2 = brMap.ReadBytes(0x24),
+
+                TableIndexOffset = brMap.ReadInt32()
+            };
+
+            sMap.Seek(map.MeshTableOffset + 0x1C, SeekOrigin.Begin);
+            map.MeshTableDataOffset = brMap.ReadInt32();
+            map.MeshTableDataCount = brMap.ReadInt32();
+
+            sMap.Seek(map.TableIndexOffset + 0x8, SeekOrigin.Begin);
+            map.TableIndexOffset2 = brMap.ReadInt32();
+
+            sMap.Seek(map.TableIndexOffset + map.TableIndexOffset2, SeekOrigin.Begin);
+            map.SomeVarietyOfOffsets = new short[map.MeshTableDataCount];
+            for (int i = 0; i < map.MeshTableDataCount; i++)
+            {
+                App.PushLog(sMap.Position.ToString("X"));
+                map.SomeVarietyOfOffsets[i] = brMap.ReadInt16();
+            }
+
+            map.MeshTables = new Structs.MapInfoMeshTable[map.MeshTableDataCount];
+            for (int i = 0; i < map.MeshTableDataCount; i++)
+            {
+                sMap.Seek(map.MeshTableOffset + map.MeshTableDataOffset + (i * 0x44), SeekOrigin.Begin);
+                map.MeshTables[i].MeshOffset = brMap.ReadInt32();
+                map.MeshTables[i].MeshCount = brMap.ReadInt32();
+
+                map.MeshTables[i].Meshes = new Structs.MXMDMesh[map.MeshTables[i].MeshCount];
+                for (int j = 0; j < map.MeshTables[i].MeshCount; j++)
+                {
+                    sMap.Seek(map.MeshTableOffset + map.MeshTables[i].MeshOffset, SeekOrigin.Begin);
+                    map.MeshTables[i].Meshes[j] = new Structs.MXMDMesh
+                    {
+                        ID = brMap.ReadInt32(),
+
+                        Descriptor = brMap.ReadInt32(),
+
+                        VertTableIndex = brMap.ReadInt16(),
+                        FaceTableIndex = brMap.ReadInt16(),
+
+                        Unknown1 = brMap.ReadInt16(),
+                        MaterialID = brMap.ReadInt16(),
+                        Unknown2 = brMap.ReadBytes(0xC),
+                        Unknown3 = brMap.ReadInt16(),
+
+                        LOD = brMap.ReadInt16(),
+                        Unknown4 = brMap.ReadInt32(),
+
+                        Unknown5 = brMap.ReadBytes(0xC),
+                    };
+                }
+            }
+
+            return map;
+        }
+
+        public void ModelToASCII(Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
         {
             Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
             for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
@@ -1081,7 +1146,7 @@ namespace XBC2ModelDecomp
             GC.Collect();
         }
 
-        public void ModelToGLTF(Structs.MSRD MSRD, Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
+        public void ModelToGLTF(Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
         {
             List<int> ValidMeshes = VerifyMeshes(MXMD, Mesh);
 
