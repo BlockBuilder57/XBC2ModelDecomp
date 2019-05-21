@@ -956,7 +956,6 @@ namespace XBC2ModelDecomp
             map.SomeVarietyOfOffsets = new short[map.MeshTableDataCount];
             for (int i = 0; i < map.MeshTableDataCount; i++)
             {
-                App.PushLog(sMap.Position.ToString("X"));
                 map.SomeVarietyOfOffsets[i] = brMap.ReadInt16();
             }
 
@@ -996,7 +995,7 @@ namespace XBC2ModelDecomp
             return map;
         }
 
-        public void ModelToASCII(Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
+        public void ModelToASCII(Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL, string tempName = "")
         {
             Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
             for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
@@ -1004,7 +1003,7 @@ namespace XBC2ModelDecomp
 
             //begin ascii
             //bone time
-            StreamWriter asciiWriter = new StreamWriter($@"{App.CurOutputPath}\{App.CurFileNameNoExt + ".ascii"}");
+            StreamWriter asciiWriter = new StreamWriter($@"{App.CurOutputPath}\{(string.IsNullOrWhiteSpace(tempName) ? App.CurFileNameNoExt : tempName) + ".ascii"}");
             if (SKEL.Unknown1 != Int32.MaxValue)
             {
                 asciiWriter.WriteLine(SKEL.TOCItems[2].Count);
@@ -1143,7 +1142,6 @@ namespace XBC2ModelDecomp
             App.PushLog("Writing .ascii file...");
             asciiWriter.Flush();
             asciiWriter.Dispose();
-            GC.Collect();
         }
 
         public void ModelToGLTF(Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)

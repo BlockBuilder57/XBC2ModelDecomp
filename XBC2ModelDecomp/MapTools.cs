@@ -71,13 +71,38 @@ namespace XBC2ModelDecomp
             App.PushLog("Done!");
             fileStream.Dispose();
 
-            Structs.MapInfo bina = ft.ReadMapInfo(WISMDA.Files[2].Data, new BinaryReader(WISMDA.Files[2].Data));
-            Structs.Mesh mesh = ft.ReadMesh(WISMDA.Files[7].Data, new BinaryReader(WISMDA.Files[7].Data));
+            Structs.XBC1[] MapInfoDatas = WISMDA.FilesBySearch("bina_basefix.temp_wi").OrderBy(x => x.FileSize).ToArray();
+            Structs.MapInfo[] MapInfos = new Structs.MapInfo[MapInfoDatas.Length];
+            for (int i = 0; i < MapInfoDatas.Length; i++)
+            {
+                MapInfos[i] = ft.ReadMapInfo(MapInfoDatas[i].Data, new BinaryReader(MapInfoDatas[i].Data));
+            }
 
-            App.PushLog(Structs.ReflectToString(bina));
-            App.PushLog(mesh.ToString());
+            //these values are used:
+            //MXMD.ModelStruct.Nodes - all values
+            //MXMD.ModelStruct.Meshes.Meshes - all values
+            //MXMD.ModelStruct.Meshes.TableCount
+            //MXMD.Materials - all values
+            //MXMD.ModelStruct.MorphControls.Controls - for flexes on props
 
-            ft.ModelToASCII(mesh, new Structs.MXMD { Version = Int32.MaxValue }, new Structs.SKEL { Unknown1 = Int32.MaxValue });
+            App.PushLog(Structs.ReflectToString(MapInfos[0]));
+            App.PushLog(Structs.ReflectToString(MapInfos[1]));
+
+            Structs.XBC1[] MapMeshes = WISMDA.FilesBySearch("basemap/poli//");
+            Structs.MXMD EmptyMXMD = new Structs.MXMD { Version = Int32.MaxValue };
+            Structs.SKEL EmptySKEL = new Structs.SKEL { Unknown1 = Int32.MaxValue };
+            for (int i = 0; i < MapMeshes.Length; i++)
+            {
+                MemoryStream model = MapMeshes[i].Data;
+                Structs.Mesh mesh = ft.ReadMesh(model, new BinaryReader(model));
+
+                Structs.MXMD MapMXMD = new Structs.MXMD();
+                
+
+                ft.ModelToASCII(mesh, EmptyMXMD, EmptySKEL, $"mesh{i}");
+            }
+
+            App.PushLog("Done!");
         }
     }
 }

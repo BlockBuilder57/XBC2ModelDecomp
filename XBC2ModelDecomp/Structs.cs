@@ -659,6 +659,16 @@ namespace XBC2ModelDecomp
         public struct WISMDA
         {
             public XBC1[] Files;
+
+            public XBC1 FileBySearch(string search)
+            {
+                return Files[Array.FindIndex(Files, x => x.Name.Contains(search))];
+            }
+
+            public XBC1[] FilesBySearch(string search)
+            {
+                return Files.Where(x => x.Name.Contains(search)).ToArray();
+            }
         }
 
         //winvhe
