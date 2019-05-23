@@ -51,7 +51,8 @@ namespace XBC2ModelDecomp
 
             List<string> filenames = new List<string>();
 
-            App.PushLog($"Saving {magicOccurences.Count} file(s) to disk...");
+            if (App.SaveRawFiles)
+                App.PushLog($"Saving {magicOccurences.Count} file(s) to disk...");
             for (int i = 0; i < magicOccurences.Count; i++)
             {
                 WISMDA.Files[i] = ft.ReadXBC1(fileStream, binaryReader, magicOccurences[i]);
@@ -71,11 +72,23 @@ namespace XBC2ModelDecomp
             App.PushLog("Done!");
             fileStream.Dispose();
 
-            Structs.XBC1[] MapInfoDatas = WISMDA.FilesBySearch("bina_basefix.temp_wi").OrderBy(x => x.FileSize).ToArray();
+            Structs.XBC1[] MapInfoDatas = WISMDA.FilesBySearch("bina_basefix.temp_wi").OrderByDescending(x => x.FileSize).ToArray();
+            Structs.MXMD[] MapMXMDs = new Structs.MXMD[MapInfoDatas.Length];
             Structs.MapInfo[] MapInfos = new Structs.MapInfo[MapInfoDatas.Length];
             for (int i = 0; i < MapInfoDatas.Length; i++)
             {
                 MapInfos[i] = ft.ReadMapInfo(MapInfoDatas[i].Data, new BinaryReader(MapInfoDatas[i].Data));
+
+                MapMXMDs[i] = new Structs.MXMD { Version = 0x69420 };
+                MapMXMDs[i].ModelStruct.Meshes = new Structs.MXMDMeshes[MapInfos[i].MeshTables.Length];
+                for (int j = 0; j < MapInfos[i].MeshTables.Length; j++)
+                {
+
+                    //ADD MATERIALS PLEASE
+                    MapMXMDs[i].ModelStruct.MeshesCount = MapInfos[i].MeshTableDataCount;
+                    MapMXMDs[i].ModelStruct.Meshes[j].TableCount = MapInfos[i].MeshTables[j].MeshCount;
+                    MapMXMDs[i].ModelStruct.Meshes[j].Descriptors = MapInfos[i].MeshTables[j].Descriptors;
+                }
             }
 
             //these values are used:
@@ -96,10 +109,9 @@ namespace XBC2ModelDecomp
                 MemoryStream model = MapMeshes[i].Data;
                 Structs.Mesh mesh = ft.ReadMesh(model, new BinaryReader(model));
 
-                Structs.MXMD MapMXMD = new Structs.MXMD();
                 
 
-                ft.ModelToASCII(mesh, EmptyMXMD, EmptySKEL, $"mesh{i}");
+                ft.ModelToASCII(mesh, MapMXMDs[1], EmptySKEL, $"mesh{i}");
             }
 
             App.PushLog("Done!");

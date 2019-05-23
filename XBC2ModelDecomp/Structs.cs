@@ -18,7 +18,7 @@ namespace XBC2ModelDecomp
             glTF
         }
 
-        public static string ReflectToString(object parent, int tabCount = 1)
+        public static string ReflectToString(object parent, int tabCount = 1, int arrayLimit = 100)
         {
             string output = "";
 
@@ -27,6 +27,8 @@ namespace XBC2ModelDecomp
             foreach (FieldInfo field in parentType.GetFields())
             {
                 object value = field.GetValue(parent);
+                if (value == null)
+                    continue;
 
                 if (value is int || value is uint ||
                     value is short || value is ushort ||
@@ -66,7 +68,7 @@ namespace XBC2ModelDecomp
 
                     output += $"{field.Name}[{array.Length}]: ";
 
-                    if (array.Rank > 1 || array.Length > 100 || array is Vector3[] || array is Quaternion[] || array is Color[])
+                    if (array.Rank > 1 || array.Length > arrayLimit || array is Vector3[] || array is Quaternion[] || array is Color[])
                         continue;
 
                     if (array is byte[])
@@ -423,7 +425,7 @@ namespace XBC2ModelDecomp
             public Vector3 BoundingBoxStart;
             public Vector3 BoundingBoxEnd;
             public int MeshesOffset;
-            public int Unknown2;
+            public int MeshesCount;
             public int Unknown3;
             public int NodesOffset;
 
@@ -436,7 +438,7 @@ namespace XBC2ModelDecomp
 
             public MXMDMorphNames MorphNames;
 
-            public MXMDMeshes Meshes;
+            public MXMDMeshes[] Meshes;
 
             public MXMDNodes Nodes;
         }
@@ -491,10 +493,10 @@ namespace XBC2ModelDecomp
             public Vector3 BoundingBoxEnd;
             public float BoundingRadius;
 
-            public MXMDMesh[] Meshes;
+            public MXMDMeshDescriptor[] Descriptors;
         }
 
-        public struct MXMDMesh
+        public struct MXMDMeshDescriptor
         {
             public int ID;
 
@@ -725,7 +727,7 @@ namespace XBC2ModelDecomp
             public int MeshOffset;
             public int MeshCount;
 
-            public MXMDMesh[] Meshes;
+            public MXMDMeshDescriptor[] Descriptors;
         }
     }
 }
