@@ -712,6 +712,9 @@ namespace XBC2ModelDecomp
 
             //the rest of these will be all over the place
 
+            public MXMDMaterialHeader MaterialHeader;
+            public MXMDMaterial[] Materials;
+
             public int MeshTableDataOffset;
             public int MeshTableDataCount;
 

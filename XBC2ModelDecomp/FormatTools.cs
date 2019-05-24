@@ -957,6 +957,27 @@ namespace XBC2ModelDecomp
                 TableIndexOffset = brMap.ReadInt32()
             };
 
+            sMap.Seek(map.MaterialTableOffset, SeekOrigin.Begin);
+            map.MaterialHeader = new Structs.MXMDMaterialHeader
+            {
+                Offset = brMap.ReadInt32(),
+                Count = brMap.ReadInt32()
+            };
+
+            map.Materials = new Structs.MXMDMaterial[map.MaterialHeader.Count];
+            for (int i = 0; i < map.MaterialHeader.Count; i++)
+            {
+                sMap.Seek(map.MaterialTableOffset + map.MaterialHeader.Offset + (i * 0x74), SeekOrigin.Begin);
+                map.Materials[i] = new Structs.MXMDMaterial
+                {
+                    NameOffset = brMap.ReadInt32(),
+                    Unknown1 = brMap.ReadBytes(0x70)
+                };
+
+                sMap.Seek(map.MaterialTableOffset + map.Materials[i].NameOffset, SeekOrigin.Begin);
+                map.Materials[i].Name = ReadNullTerminatedString(brMap);
+            }
+
             sMap.Seek(map.MeshTableOffset + 0x1C, SeekOrigin.Begin);
             map.MeshTableDataOffset = brMap.ReadInt32();
             map.MeshTableDataCount = brMap.ReadInt32();

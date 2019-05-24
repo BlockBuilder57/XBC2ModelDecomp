@@ -44,6 +44,12 @@ namespace XBC2ModelDecomp
             }
             ByteBuffer = new byte[0];
 
+            if (magicOccurences.Count > 0)
+            {
+                if (!Directory.Exists(App.CurOutputPath))
+                    Directory.CreateDirectory(App.CurOutputPath);
+            }
+
             Structs.WISMDA WISMDA = new Structs.WISMDA
             {
                 Files = new Structs.XBC1[magicOccurences.Count]
@@ -72,46 +78,34 @@ namespace XBC2ModelDecomp
             App.PushLog("Done!");
             fileStream.Dispose();
 
-            Structs.XBC1[] MapInfoDatas = WISMDA.FilesBySearch("bina_basefix.temp_wi").OrderByDescending(x => x.FileSize).ToArray();
+            Structs.XBC1[] MapInfoDatas = WISMDA.FilesBySearch("bina_basefix.temp_wi").OrderBy(x => x.FileSize).ToArray();
             Structs.MXMD[] MapMXMDs = new Structs.MXMD[MapInfoDatas.Length];
             Structs.MapInfo[] MapInfos = new Structs.MapInfo[MapInfoDatas.Length];
             for (int i = 0; i < MapInfoDatas.Length; i++)
             {
                 MapInfos[i] = ft.ReadMapInfo(MapInfoDatas[i].Data, new BinaryReader(MapInfoDatas[i].Data));
 
-                MapMXMDs[i] = new Structs.MXMD { Version = 0x69420 };
+                MapMXMDs[i] = new Structs.MXMD { Version = 0xFF };
                 MapMXMDs[i].ModelStruct.Meshes = new Structs.MXMDMeshes[MapInfos[i].MeshTables.Length];
                 for (int j = 0; j < MapInfos[i].MeshTables.Length; j++)
                 {
-
-                    //ADD MATERIALS PLEASE
+                    MapMXMDs[i].Materials = MapInfos[i].Materials;
                     MapMXMDs[i].ModelStruct.MeshesCount = MapInfos[i].MeshTableDataCount;
                     MapMXMDs[i].ModelStruct.Meshes[j].TableCount = MapInfos[i].MeshTables[j].MeshCount;
                     MapMXMDs[i].ModelStruct.Meshes[j].Descriptors = MapInfos[i].MeshTables[j].Descriptors;
                 }
             }
 
-            //these values are used:
-            //MXMD.ModelStruct.Nodes - all values
-            //MXMD.ModelStruct.Meshes.Meshes - all values
-            //MXMD.ModelStruct.Meshes.TableCount
-            //MXMD.Materials - all values
-            //MXMD.ModelStruct.MorphControls.Controls - for flexes on props
-
-            App.PushLog(Structs.ReflectToString(MapInfos[0]));
-            App.PushLog(Structs.ReflectToString(MapInfos[1]));
-
-            Structs.XBC1[] MapMeshes = WISMDA.FilesBySearch("basemap/poli//");
+            Structs.XBC1[] MapMeshDatas = WISMDA.FilesBySearch("basemap/poli//");
+            Structs.Mesh[] MapMeshes = new Structs.Mesh[MapMeshDatas.Length];
             Structs.MXMD EmptyMXMD = new Structs.MXMD { Version = Int32.MaxValue };
             Structs.SKEL EmptySKEL = new Structs.SKEL { Unknown1 = Int32.MaxValue };
             for (int i = 0; i < MapMeshes.Length; i++)
             {
-                MemoryStream model = MapMeshes[i].Data;
-                Structs.Mesh mesh = ft.ReadMesh(model, new BinaryReader(model));
+                MemoryStream model = MapMeshDatas[i].Data;
+                MapMeshes[i] = ft.ReadMesh(model, new BinaryReader(model));
 
-                
-
-                ft.ModelToASCII(mesh, MapMXMDs[1], EmptySKEL, $"mesh{i}");
+                ft.ModelToASCII(MapMeshes[i], MapMXMDs[1], EmptySKEL, $"mesh{i}");
             }
 
             App.PushLog("Done!");
