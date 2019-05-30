@@ -14,7 +14,7 @@ namespace XBC2ModelDecomp
 
         public MapTools()
         {
-            App.PushLog($"Extracting large maps can take a lot of memory! If you have less than 2GB to spare the program, the program may slow down as it enters swap memory.");
+            App.PushLog($"Extracting large maps can take a lot of memory! If you have less than 2GB to spare the program, the program may slow down or crash as it enters swap memory.");
 
             List<int> magicOccurences = new List<int>();
 
@@ -84,6 +84,9 @@ namespace XBC2ModelDecomp
             for (int i = 0; i < MapInfoDatas.Length; i++)
             {
                 MapInfos[i] = ft.ReadMapInfo(MapInfoDatas[i].Data, new BinaryReader(MapInfoDatas[i].Data));
+                for (int j = 0; j < MapInfos[i].MeshFileLookup.Length; j++)
+                    if (i != 0)
+                        MapInfos[i].MeshFileLookup[j] += (short)(MapInfos[i - 1].MeshFileLookup.Max() + 1);
 
                 MapMXMDs[i] = new Structs.MXMD { Version = 0xFF };
                 MapMXMDs[i].ModelStruct.Meshes = new Structs.MXMDMeshes[MapInfos[i].MeshTables.Length];
@@ -96,6 +99,10 @@ namespace XBC2ModelDecomp
                 }
             }
 
+            if (App.ShowInfo)
+                foreach (Structs.MapInfo map in MapInfos)
+                    App.PushLog(Structs.ReflectToString(map));
+
             Structs.XBC1[] MapMeshDatas = WISMDA.FilesBySearch("basemap/poli//");
             Structs.Mesh[] MapMeshes = new Structs.Mesh[MapMeshDatas.Length];
             Structs.MXMD EmptyMXMD = new Structs.MXMD { Version = Int32.MaxValue };
@@ -104,9 +111,10 @@ namespace XBC2ModelDecomp
             {
                 MemoryStream model = MapMeshDatas[i].Data;
                 MapMeshes[i] = ft.ReadMesh(model, new BinaryReader(model));
-
-                ft.ModelToASCII(MapMeshes[i], MapMXMDs[1], EmptySKEL, $"mesh{i}");
             }
+
+            for (int i = 0; i < MapInfos.Length; i++)
+                ft.ModelToASCII(MapMeshes, MapMXMDs[i], EmptySKEL, MapInfos[i]);
 
             App.PushLog("Done!");
         }

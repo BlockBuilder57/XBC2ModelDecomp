@@ -37,6 +37,7 @@ namespace XBC2ModelDecomp
                     output += "\n";
                     for (int i = 0; i < tabCount; i++)
                         output += "\t";
+
                     output += $"{field.Name}: 0x{value:X} ({value})";
                 }
                 else if (value is string)
@@ -44,10 +45,10 @@ namespace XBC2ModelDecomp
                     output += "\n";
                     for (int i = 0; i < tabCount; i++)
                         output += "\t";
+
                     output += $"{field.Name}: {value}";
                 }
-
-                if (field.FieldType.IsEnum)
+                else if (field.FieldType.IsEnum)
                 {
                     output += "\n";
                     for (int i = 0; i < tabCount; i++)
@@ -57,8 +58,7 @@ namespace XBC2ModelDecomp
 
                     output += $"{field.Name}: {enumValue} ({Convert.ToInt32(enumValue)})";
                 }
-
-                if (field.FieldType.IsArray)
+                else if (field.FieldType.IsArray)
                 {
                     Array array = field.GetValue(parent) as Array;
 
@@ -109,6 +109,15 @@ namespace XBC2ModelDecomp
                             }
                         }
                     }
+                }
+                else if (field.FieldType.Namespace == "XBC2ModelDecomp")
+                {
+                    output += "\n";
+                    for (int i = 0; i < tabCount; i++)
+                        output += "\t";
+
+                    output += $"{field.Name}:";
+                    output += ReflectToString(value, tabCount + 1);
                 }
             }
 
@@ -701,12 +710,14 @@ namespace XBC2ModelDecomp
 
         public struct MapInfo
         {
-            public byte[] Unknown1; //0xC long
+            public int Unknown1;
+            public int Unknown2;
+            public int Unknown3;
 
             public int MeshTableOffset;
             public int MaterialTableOffset;
 
-            public byte[] Unknown2; //0x24 long
+            public byte[] Unknown4; //0x24 long
 
             public int TableIndexOffset;
 
@@ -720,7 +731,7 @@ namespace XBC2ModelDecomp
 
             public int TableIndexOffset2;
 
-            public short[] SomeVarietyOfOffsets;
+            public short[] MeshFileLookup;
 
             public MapInfoMeshTable[] MeshTables;
         }

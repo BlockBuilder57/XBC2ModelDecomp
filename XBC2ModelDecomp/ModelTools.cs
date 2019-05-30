@@ -45,7 +45,7 @@ namespace XBC2ModelDecomp
             //start mesh file
             if (MSRD.TOC.Length > 0)
             {
-                if (!Directory.Exists(App.CurOutputPath))
+                if (App.ExportFormat != Structs.ExportFormat.None && !Directory.Exists(App.CurOutputPath))
                     Directory.CreateDirectory(App.CurOutputPath);
 
                 if (MSRD.TOC.Length > 1 && App.ExportTextures)
@@ -91,7 +91,7 @@ namespace XBC2ModelDecomp
                 switch (App.ExportFormat)
                 {
                     case Structs.ExportFormat.XNALara:
-                        ft.ModelToASCII(Mesh, MXMD, SKEL);
+                        ft.ModelToASCII(new Structs.Mesh[] { Mesh }, MXMD, SKEL, new Structs.MapInfo { Unknown1 = Int32.MaxValue });
                         break;
                     case Structs.ExportFormat.glTF:
                         ft.ModelToGLTF(Mesh, MXMD, SKEL);

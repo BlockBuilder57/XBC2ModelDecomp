@@ -58,12 +58,12 @@ namespace XBC2ModelDecomp
             }
         }
 
-        public List<int>[] VerifyMeshes(Structs.MXMD MXMD, Structs.Mesh Mesh)
+        public List<int>[] VerifyMeshes(Structs.Mesh Mesh, Structs.MXMD MXMD)
         {
             if (MXMD.Version == Int32.MaxValue)
-                return new List<int>[] { new List<int>() { 0 } };
+                return new List<int>[] { new List<int> { 0 } };
 
-            List<int>[] ValidityCheck = new List<int>[MXMD.ModelStruct.MeshesCount];
+            List<int>[] VerifiedMeshes = new List<int>[MXMD.ModelStruct.MeshesCount];
 
             for (int i = 0; i < MXMD.ModelStruct.MeshesCount; i++)
             {
@@ -73,7 +73,7 @@ namespace XBC2ModelDecomp
                     App.PushLog($"An LOD value of {App.LOD} returns 0 meshes, checking for the highest available LOD...");
                     for (int j = 0; j <= 3; j++)
                     {
-                        if (MXMD.ModelStruct.Meshes[j].Descriptors.Count(x => x.LOD == j) > 0)
+                        if (MXMD.ModelStruct.Meshes[i].Descriptors.Count(x => x.LOD == j) > 0)
                         {
                             App.LOD = j;
                             App.PushLog($"LOD set to {j}.");
@@ -103,10 +103,10 @@ namespace XBC2ModelDecomp
                     }
                 }
 
-                ValidityCheck[i] = ValidMeshes;
+                VerifiedMeshes[i] = ValidMeshes;
             }
 
-            return ValidityCheck;
+            return VerifiedMeshes;
         }
 
         public Structs.XBC1 ReadXBC1(Stream sXBC1, BinaryReader brXBC1, int offset)
@@ -947,12 +947,14 @@ namespace XBC2ModelDecomp
         {
             Structs.MapInfo map = new Structs.MapInfo
             {
-                Unknown1 = brMap.ReadBytes(0xC),
+                Unknown1 = brMap.ReadInt32(),
+                Unknown2 = brMap.ReadInt32(),
+                Unknown3 = brMap.ReadInt32(),
 
                 MeshTableOffset = brMap.ReadInt32(),
                 MaterialTableOffset = brMap.ReadInt32(),
 
-                Unknown2 = brMap.ReadBytes(0x24),
+                Unknown4 = brMap.ReadBytes(0x24),
 
                 TableIndexOffset = brMap.ReadInt32()
             };
@@ -986,10 +988,10 @@ namespace XBC2ModelDecomp
             map.TableIndexOffset2 = brMap.ReadInt32();
 
             sMap.Seek(map.TableIndexOffset + map.TableIndexOffset2, SeekOrigin.Begin);
-            map.SomeVarietyOfOffsets = new short[map.MeshTableDataCount];
+            map.MeshFileLookup = new short[map.MeshTableDataCount];
             for (int i = 0; i < map.MeshTableDataCount; i++)
             {
-                map.SomeVarietyOfOffsets[i] = brMap.ReadInt16();
+                map.MeshFileLookup[i] = brMap.ReadInt16();
             }
 
             map.MeshTables = new Structs.MapInfoMeshTable[map.MeshTableDataCount];
@@ -1028,7 +1030,7 @@ namespace XBC2ModelDecomp
             return map;
         }
 
-        public void ModelToASCII(Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL, string tempName = "")
+        public void ModelToASCII(Structs.Mesh[] Meshes, Structs.MXMD MXMD, Structs.SKEL SKEL, Structs.MapInfo MapInfo)
         {
             Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
             for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
@@ -1036,7 +1038,7 @@ namespace XBC2ModelDecomp
 
             //begin ascii
             //bone time
-            StreamWriter asciiWriter = new StreamWriter($@"{App.CurOutputPath}\{(string.IsNullOrWhiteSpace(tempName) ? App.CurFileNameNoExt : tempName) + ".ascii"}");
+            StreamWriter asciiWriter = new StreamWriter($@"{App.CurOutputPath}\{App.CurFileNameNoExt}.ascii");
             if (SKEL.Unknown1 != Int32.MaxValue)
             {
                 asciiWriter.WriteLine(SKEL.TOCItems[2].Count);
@@ -1046,28 +1048,28 @@ namespace XBC2ModelDecomp
                     asciiWriter.WriteLine(SKEL.Parents[i]);
                     asciiWriter.Write(SKEL.Transforms[i].RealPosition.X.ToString("F6") + " ");
                     asciiWriter.Write(SKEL.Transforms[i].RealPosition.Y.ToString("F6") + " ");
-                    asciiWriter.Write(SKEL.Transforms[i].RealPosition.Z.ToString("F6") + " ");
-                    //asciiWriter.Write(SKEL.Transforms[j].RealRotation.X.ToString("F6") + " ");
-                    //asciiWriter.Write(SKEL.Transforms[j].RealRotation.Y.ToString("F6") + " ");
-                    //asciiWriter.Write(SKEL.Transforms[j].RealRotation.Z.ToString("F6") + " ");
-                    //asciiWriter.Write(SKEL.Transforms[j].RealRotation.W.ToString("F6"));
-                    //bone name
-                    //bone parent index
-                    //x y z i j w real
+                    asciiWriter.Write(SKEL.Transforms[i].RealPosition.Z.ToString("F6"));
                     asciiWriter.WriteLine();
                 }
             }
             else
                 asciiWriter.WriteLine(0);
 
-            List<int>[] ValidMeshes = VerifyMeshes(MXMD, Mesh);
+            List<int>[] ValidMeshes = VerifyMeshes(Meshes[0], MXMD);
 
-            int lastMeshIdIdenticalCount = 0;
-            bool lastMeshIdIdentical = false;
-            Structs.MeshVertexTable weightTbl = Mesh.VertexTables.Last();
+            Structs.Mesh Mesh = Meshes[0];
             asciiWriter.WriteLine(ValidMeshes.Sum(x => x.Count));
-            for (int i = 0; i < ValidMeshes.Length; i++)
+            for (int i = 0; i < MXMD.ModelStruct.MeshesCount; i++)
             {
+                if (MapInfo.Unknown1 != Int32.MaxValue)
+                {
+                    App.PushLog($"I think this is one of them map thingers - {i} gets {MapInfo.MeshFileLookup[i]}");
+                    Mesh = Meshes[MapInfo.MeshFileLookup[i]];
+                    ValidMeshes = VerifyMeshes(Mesh, MXMD);
+                }
+
+                int lastMeshIdIdenticalCount = 0;
+                bool lastMeshIdIdentical = false;
                 for (int j = 0; j < ValidMeshes[i].Count; j++)
                 {
                     lastMeshIdIdentical = j == 0 ? false : ValidMeshes[i][j - 1] == ValidMeshes[i][j];
@@ -1077,15 +1079,24 @@ namespace XBC2ModelDecomp
                     else
                         lastMeshIdIdenticalCount = 0;
 
-                    int meshId = ValidMeshes[i][j];
-                    Structs.MXMDMeshDescriptor MXMDMesh = MXMD.Version == Int32.MaxValue ? default(Structs.MXMDMeshDescriptor) : MXMD.ModelStruct.Meshes[i].Descriptors[meshId];
-                    if (MXMDMesh.LOD == App.LOD || App.LOD == -1)
+                    int descId = ValidMeshes[i][j];
+                    Structs.MXMDMeshDescriptor desc = MXMD.Version == Int32.MaxValue ? default(Structs.MXMDMeshDescriptor) : MXMD.ModelStruct.Meshes[i].Descriptors[descId];
+                    if (desc.LOD == App.LOD || App.LOD == -1)
                     {
-                        Structs.MeshVertexTable vertTbl = Mesh.VertexTables[MXMDMesh.VertTableIndex];
-                        Structs.MeshFaceTable faceTbl = Mesh.FaceTables[MXMDMesh.FaceTableIndex];
-                        Structs.MeshMorphDescriptor desc = new Structs.MeshMorphDescriptor();
+                        if (desc.VertTableIndex >= Mesh.VertexTableCount || desc.FaceTableIndex >= Mesh.FaceTableCount)
+                        {
+                            asciiWriter.WriteLine("MESH READING FAILED");
+                            asciiWriter.WriteLine(0);
+                            asciiWriter.WriteLine(0);
+                            asciiWriter.WriteLine(0);
+                            continue;
+                        }
+                        Structs.MeshVertexTable vertTbl = Mesh.VertexTables[desc.VertTableIndex];
+                        Structs.MeshFaceTable faceTbl = Mesh.FaceTables[desc.FaceTableIndex];
+                        Structs.MeshVertexTable weightTbl = Mesh.VertexTables.Last();
+                        Structs.MeshMorphDescriptor morphDesc = new Structs.MeshMorphDescriptor();
                         if (App.ExportFlexes && Mesh.MorphDataOffset > 0)
-                            desc = Mesh.MorphData.MorphDescriptors.Where(x => x.BufferID == MXMDMesh.VertTableIndex).FirstOrDefault();
+                            morphDesc = Mesh.MorphData.MorphDescriptors.Where(x => x.BufferID == desc.VertTableIndex).FirstOrDefault();
 
                         int highestVertId = 0;
                         int lowestVertId = vertTbl.DataCount;
@@ -1097,13 +1108,13 @@ namespace XBC2ModelDecomp
                                 lowestVertId = faceTbl.Vertices[k];
                         }
 
-                        string meshName = $"mesh{meshId}_{(App.LOD == -1 ? $"LOD{MXMDMesh.LOD}_" : "")}";
+                        string meshName = $"mesh{descId}_{(App.LOD == -1 ? $"LOD{desc.LOD}_" : "")}";
                         if (lastMeshIdIdentical)
                             meshName += $"flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}";
                         else
                         {
                             if (MXMD.Version != Int32.MaxValue)
-                                meshName += MXMD.Materials[MXMDMesh.MaterialID].Name;
+                                meshName += MXMD.Materials[desc.MaterialID].Name;
                             else
                                 meshName += "NO_MATERIALS";
                         }
@@ -1117,7 +1128,7 @@ namespace XBC2ModelDecomp
                             //vertex position
                             Vector3 vertexPos = vertTbl.Vertices[vrtIndex];
                             if (lastMeshIdIdentical)
-                                vertexPos += Mesh.MorphData.MorphTargets[desc.TargetIndex + lastMeshIdIdenticalCount + 1].Vertices[vrtIndex];
+                                vertexPos += Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + lastMeshIdIdenticalCount + 1].Vertices[vrtIndex];
                             asciiWriter.Write($"{vertexPos.X:F6} ");
                             asciiWriter.Write($"{vertexPos.Y:F6} ");
                             asciiWriter.Write($"{vertexPos.Z:F6}");
@@ -1126,7 +1137,7 @@ namespace XBC2ModelDecomp
                             //vertex normal
                             Quaternion normalPos = vertTbl.Normals[vrtIndex];
                             if (lastMeshIdIdentical)
-                                normalPos += Mesh.MorphData.MorphTargets[desc.TargetIndex + lastMeshIdIdenticalCount + 1].Normals[vrtIndex];
+                                normalPos += Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + lastMeshIdIdenticalCount + 1].Normals[vrtIndex];
                             asciiWriter.Write($"{normalPos.X:F6} ");
                             asciiWriter.Write($"{normalPos.Y:F6} ");
                             asciiWriter.Write($"{normalPos.Z:F6}");
@@ -1182,7 +1193,7 @@ namespace XBC2ModelDecomp
 
         public void ModelToGLTF(Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
         {
-            List<int>[] ValidMeshes = VerifyMeshes(MXMD, Mesh);
+            List<int>[] ValidMeshes = VerifyMeshes(Mesh, MXMD);
 
             MeshBuilder<VertexPositionNormal, VertexEmpty, VertexJoints16x4>[] meshBuilders = new MeshBuilder<VertexPositionNormal, VertexEmpty, VertexJoints16x4>[MXMD.Materials.Length];
             Dictionary<string, MaterialBuilder> nameToMat = new Dictionary<string, MaterialBuilder>();
