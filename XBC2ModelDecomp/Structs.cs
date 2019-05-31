@@ -734,6 +734,13 @@ namespace XBC2ModelDecomp
             public short[] MeshFileLookup;
 
             public MapInfoMeshTable[] MeshTables;
+
+            public override string ToString()
+            {
+                string output = "MapInfo:";
+                output += ReflectToString(this);
+                return output;
+            }
         }
 
         public struct MapInfoMeshTable

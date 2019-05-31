@@ -78,7 +78,7 @@ namespace XBC2ModelDecomp
             App.PushLog("Done!");
             fileStream.Dispose();
 
-            Structs.XBC1[] MapInfoDatas = WISMDA.FilesBySearch("bina_basefix.temp_wi").OrderBy(x => x.FileSize).ToArray();
+            Structs.XBC1[] MapInfoDatas = WISMDA.FilesBySearch("bina_basefix.temp_wi").ToArray();
             Structs.MXMD[] MapMXMDs = new Structs.MXMD[MapInfoDatas.Length];
             Structs.MapInfo[] MapInfos = new Structs.MapInfo[MapInfoDatas.Length];
             for (int i = 0; i < MapInfoDatas.Length; i++)
@@ -101,7 +101,7 @@ namespace XBC2ModelDecomp
 
             if (App.ShowInfo)
                 foreach (Structs.MapInfo map in MapInfos)
-                    App.PushLog(Structs.ReflectToString(map));
+                    App.PushLog(map.ToString());
 
             Structs.XBC1[] MapMeshDatas = WISMDA.FilesBySearch("basemap/poli//");
             Structs.Mesh[] MapMeshes = new Structs.Mesh[MapMeshDatas.Length];
@@ -112,6 +112,10 @@ namespace XBC2ModelDecomp
                 MemoryStream model = MapMeshDatas[i].Data;
                 MapMeshes[i] = ft.ReadMesh(model, new BinaryReader(model));
             }
+
+            if (App.ShowInfo)
+                foreach (Structs.Mesh mesh in MapMeshes)
+                    App.PushLog(mesh.ToString());
 
             for (int i = 0; i < MapInfos.Length; i++)
                 ft.ModelToASCII(MapMeshes, MapMXMDs[i], EmptySKEL, MapInfos[i]);

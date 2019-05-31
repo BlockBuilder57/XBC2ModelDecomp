@@ -723,81 +723,89 @@ namespace XBC2ModelDecomp
                 Reserved2 = brMesh.ReadBytes(0x14)
             };
 
-            Mesh.VertexTables = new Structs.MeshVertexTable[Mesh.VertexTableCount];
-            Mesh.VertexDescriptors = new List<Structs.MeshVertexDescriptor>();
-            for (int i = 0; i < Mesh.VertexTableCount; i++)
+            if (Mesh.VertexTableOffset != 0)
             {
-                sMesh.Seek(Mesh.VertexTableOffset + (i * 0x20), SeekOrigin.Begin);
-                Mesh.VertexTables[i] = new Structs.MeshVertexTable
+                Mesh.VertexTables = new Structs.MeshVertexTable[Mesh.VertexTableCount];
+                Mesh.VertexDescriptors = new List<Structs.MeshVertexDescriptor>();
+                for (int i = 0; i < Mesh.VertexTableCount; i++)
                 {
-                    DataOffset = brMesh.ReadInt32(),
-                    DataCount = brMesh.ReadInt32(),
-                    BlockSize = brMesh.ReadInt32(),
-
-                    DescOffset = brMesh.ReadInt32(),
-                    DescCount = brMesh.ReadInt32(),
-
-                    Unknown1 = brMesh.ReadBytes(0xC)
-                };
-                Mesh.VertexTables[i].Descriptors = new Structs.MeshVertexDescriptor[Mesh.VertexTables[i].DescCount];
-                sMesh.Seek(Mesh.VertexTables[i].DescOffset, SeekOrigin.Begin);
-                for (int j = 0; j < Mesh.VertexTables[i].DescCount; j++)
-                {
-                    Structs.MeshVertexDescriptor desc = new Structs.MeshVertexDescriptor
+                    sMesh.Seek(Mesh.VertexTableOffset + (i * 0x20), SeekOrigin.Begin);
+                    Mesh.VertexTables[i] = new Structs.MeshVertexTable
                     {
-                        Type = brMesh.ReadInt16(),
-                        Size = brMesh.ReadInt16()
+                        DataOffset = brMesh.ReadInt32(),
+                        DataCount = brMesh.ReadInt32(),
+                        BlockSize = brMesh.ReadInt32(),
+
+                        DescOffset = brMesh.ReadInt32(),
+                        DescCount = brMesh.ReadInt32(),
+
+                        Unknown1 = brMesh.ReadBytes(0xC)
                     };
-                    Mesh.VertexDescriptors.Add(desc);
-                    Mesh.VertexTables[i].Descriptors[j] = desc;
+                    Mesh.VertexTables[i].Descriptors = new Structs.MeshVertexDescriptor[Mesh.VertexTables[i].DescCount];
+                    sMesh.Seek(Mesh.VertexTables[i].DescOffset, SeekOrigin.Begin);
+                    for (int j = 0; j < Mesh.VertexTables[i].DescCount; j++)
+                    {
+                        Structs.MeshVertexDescriptor desc = new Structs.MeshVertexDescriptor
+                        {
+                            Type = brMesh.ReadInt16(),
+                            Size = brMesh.ReadInt16()
+                        };
+                        Mesh.VertexDescriptors.Add(desc);
+                        Mesh.VertexTables[i].Descriptors[j] = desc;
+                    }
                 }
             }
 
-            Mesh.FaceTables = new Structs.MeshFaceTable[Mesh.FaceTableCount];
-            
-            for (int i = 0; i < Mesh.FaceTableCount; i++)
+            if (Mesh.FaceTableOffset != 0)
             {
-                sMesh.Seek(Mesh.FaceTableOffset + (i * 0x14), SeekOrigin.Begin);
-                Mesh.FaceTables[i] = new Structs.MeshFaceTable
+                Mesh.FaceTables = new Structs.MeshFaceTable[Mesh.FaceTableCount];
+                for (int i = 0; i < Mesh.FaceTableCount; i++)
                 {
-                    Offset = brMesh.ReadInt32(),
-                    VertCount = brMesh.ReadInt32(),
+                    sMesh.Seek(Mesh.FaceTableOffset + (i * 0x14), SeekOrigin.Begin);
+                    Mesh.FaceTables[i] = new Structs.MeshFaceTable
+                    {
+                        Offset = brMesh.ReadInt32(),
+                        VertCount = brMesh.ReadInt32(),
 
-                    Unknown1 = brMesh.ReadBytes(0xC)
-                };
+                        Unknown1 = brMesh.ReadBytes(0xC)
+                    };
 
-                Mesh.FaceTables[i].Vertices = new ushort[Mesh.FaceTables[i].VertCount];
-                sMesh.Seek(Mesh.DataOffset + Mesh.FaceTables[i].Offset, SeekOrigin.Begin);
-                for (int j = 0; j < Mesh.FaceTables[i].VertCount; j++)
-                    Mesh.FaceTables[i].Vertices[j] = brMesh.ReadUInt16();
+                    Mesh.FaceTables[i].Vertices = new ushort[Mesh.FaceTables[i].VertCount];
+                    sMesh.Seek(Mesh.DataOffset + Mesh.FaceTables[i].Offset, SeekOrigin.Begin);
+                    for (int j = 0; j < Mesh.FaceTables[i].VertCount; j++)
+                        Mesh.FaceTables[i].Vertices[j] = brMesh.ReadUInt16();
+                }
             }
 
-            sMesh.Seek(Mesh.WeightDataOffset, SeekOrigin.Begin);
-            Mesh.WeightData = new Structs.MeshWeightData
+            if (Mesh.WeightDataOffset != 0)
             {
-                WeightManagerCount = brMesh.ReadInt32(),
-                WeightManagerOffset = brMesh.ReadInt32(),
-
-                VertexTableIndex = brMesh.ReadInt16(),
-                Unknown2 = brMesh.ReadInt16(),
-
-                Offset02 = brMesh.ReadInt32()
-            };
-
-            Mesh.WeightData.WeightManagers = new Structs.MeshWeightManager[Mesh.WeightData.WeightManagerCount];
-            sMesh.Seek(Mesh.WeightData.WeightManagerOffset, SeekOrigin.Begin);
-            for (int i = 0; i < Mesh.WeightData.WeightManagerCount; i++)
-            {
-                Mesh.WeightData.WeightManagers[i] = new Structs.MeshWeightManager
+                sMesh.Seek(Mesh.WeightDataOffset, SeekOrigin.Begin);
+                Mesh.WeightData = new Structs.MeshWeightData
                 {
-                    Unknown1 = brMesh.ReadInt32(),
-                    Offset = brMesh.ReadInt32(),
-                    Count = brMesh.ReadInt32(),
+                    WeightManagerCount = brMesh.ReadInt32(),
+                    WeightManagerOffset = brMesh.ReadInt32(),
 
-                    Unknown2 = brMesh.ReadBytes(0x11),
-                    LOD = brMesh.ReadByte(),
-                    Unknown3 = brMesh.ReadBytes(0xA)
+                    VertexTableIndex = brMesh.ReadInt16(),
+                    Unknown2 = brMesh.ReadInt16(),
+
+                    Offset02 = brMesh.ReadInt32()
                 };
+
+                Mesh.WeightData.WeightManagers = new Structs.MeshWeightManager[Mesh.WeightData.WeightManagerCount];
+                sMesh.Seek(Mesh.WeightData.WeightManagerOffset, SeekOrigin.Begin);
+                for (int i = 0; i < Mesh.WeightData.WeightManagerCount; i++)
+                {
+                    Mesh.WeightData.WeightManagers[i] = new Structs.MeshWeightManager
+                    {
+                        Unknown1 = brMesh.ReadInt32(),
+                        Offset = brMesh.ReadInt32(),
+                        Count = brMesh.ReadInt32(),
+
+                        Unknown2 = brMesh.ReadBytes(0x11),
+                        LOD = brMesh.ReadByte(),
+                        Unknown3 = brMesh.ReadBytes(0xA)
+                    };
+                }
             }
 
             if (Mesh.MorphDataOffset > 0) //has flexes
@@ -1007,15 +1015,15 @@ namespace XBC2ModelDecomp
                     sMap.Seek(map.MeshTableOffset + map.MeshTables[i].MeshOffset, SeekOrigin.Begin);
                     map.MeshTables[i].Descriptors[j] = new Structs.MXMDMeshDescriptor
                     {
-                        ID = brMap.ReadInt32(),
+                        ID = brMap.ReadInt32() + j,
 
                         Descriptor = brMap.ReadInt32(),
 
                         VertTableIndex = brMap.ReadInt16(),
-                        FaceTableIndex = brMap.ReadInt16(),
+                        FaceTableIndex = (short)(brMap.ReadInt16() + j),
 
                         Unknown1 = brMap.ReadInt16(),
-                        MaterialID = brMap.ReadInt16(),
+                        MaterialID = (short)(brMap.ReadInt16() + j),
                         Unknown2 = brMap.ReadBytes(0xC),
                         Unknown3 = brMap.ReadInt16(),
 
@@ -1038,7 +1046,10 @@ namespace XBC2ModelDecomp
 
             //begin ascii
             //bone time
-            StreamWriter asciiWriter = new StreamWriter($@"{App.CurOutputPath}\{App.CurFileNameNoExt}.ascii");
+            string filename = $@"{App.CurOutputPath}\{App.CurFileNameNoExt}";
+            if (MapInfo.Unknown1 != Int32.MaxValue)
+                filename += $"_mesh{MapInfo.MeshFileLookup.Min()}-{MapInfo.MeshFileLookup.Max()}";
+            StreamWriter asciiWriter = new StreamWriter(filename + ".ascii");
             if (SKEL.Unknown1 != Int32.MaxValue)
             {
                 asciiWriter.WriteLine(SKEL.TOCItems[2].Count);
@@ -1083,14 +1094,6 @@ namespace XBC2ModelDecomp
                     Structs.MXMDMeshDescriptor desc = MXMD.Version == Int32.MaxValue ? default(Structs.MXMDMeshDescriptor) : MXMD.ModelStruct.Meshes[i].Descriptors[descId];
                     if (desc.LOD == App.LOD || App.LOD == -1)
                     {
-                        if (desc.VertTableIndex >= Mesh.VertexTableCount || desc.FaceTableIndex >= Mesh.FaceTableCount)
-                        {
-                            asciiWriter.WriteLine("MESH READING FAILED");
-                            asciiWriter.WriteLine(0);
-                            asciiWriter.WriteLine(0);
-                            asciiWriter.WriteLine(0);
-                            continue;
-                        }
                         Structs.MeshVertexTable vertTbl = Mesh.VertexTables[desc.VertTableIndex];
                         Structs.MeshFaceTable faceTbl = Mesh.FaceTables[desc.FaceTableIndex];
                         Structs.MeshVertexTable weightTbl = Mesh.VertexTables.Last();
