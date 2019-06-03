@@ -993,11 +993,12 @@ namespace XBC2ModelDecomp
             map.MeshTableDataCount = brMap.ReadInt32();
 
             sMap.Seek(map.TableIndexOffset + 0x8, SeekOrigin.Begin);
-            map.TableIndexOffset2 = brMap.ReadInt32();
+            map.MeshFileLookupOffset = brMap.ReadInt32();
+            map.MeshFileLookupCount = brMap.ReadInt32();
 
-            sMap.Seek(map.TableIndexOffset + map.TableIndexOffset2, SeekOrigin.Begin);
-            map.MeshFileLookup = new short[map.MeshTableDataCount];
-            for (int i = 0; i < map.MeshTableDataCount; i++)
+            sMap.Seek(map.TableIndexOffset + map.MeshFileLookupOffset, SeekOrigin.Begin);
+            map.MeshFileLookup = new short[map.MeshFileLookupCount];
+            for (int i = 0; i < map.MeshFileLookupCount; i++)
             {
                 map.MeshFileLookup[i] = brMap.ReadInt16();
             }
@@ -1010,27 +1011,27 @@ namespace XBC2ModelDecomp
                 map.MeshTables[i].MeshCount = brMap.ReadInt32();
 
                 map.MeshTables[i].Descriptors = new Structs.MXMDMeshDescriptor[map.MeshTables[i].MeshCount];
+                sMap.Seek(map.MeshTableOffset + map.MeshTables[i].MeshOffset, SeekOrigin.Begin);
                 for (int j = 0; j < map.MeshTables[i].MeshCount; j++)
                 {
-                    sMap.Seek(map.MeshTableOffset + map.MeshTables[i].MeshOffset, SeekOrigin.Begin);
                     map.MeshTables[i].Descriptors[j] = new Structs.MXMDMeshDescriptor
                     {
-                        ID = brMap.ReadInt32() + j,
+                        ID = brMap.ReadInt32(),
 
                         Descriptor = brMap.ReadInt32(),
 
                         VertTableIndex = brMap.ReadInt16(),
-                        FaceTableIndex = (short)(brMap.ReadInt16() + j),
+                        FaceTableIndex = brMap.ReadInt16(),
 
                         Unknown1 = brMap.ReadInt16(),
-                        MaterialID = (short)(brMap.ReadInt16() + j),
+                        MaterialID = brMap.ReadInt16(),
                         Unknown2 = brMap.ReadBytes(0xC),
                         Unknown3 = brMap.ReadInt16(),
 
                         LOD = brMap.ReadInt16(),
                         Unknown4 = brMap.ReadInt32(),
 
-                        Unknown5 = brMap.ReadBytes(0xC),
+                        Unknown5 = brMap.ReadBytes(0xC)
                     };
                 }
             }
@@ -1111,7 +1112,7 @@ namespace XBC2ModelDecomp
                                 lowestVertId = faceTbl.Vertices[k];
                         }
 
-                        string meshName = $"mesh{descId}_{(App.LOD == -1 ? $"LOD{desc.LOD}_" : "")}";
+                        string meshName = $"file{i}mesh{descId}_{(App.LOD == -1 ? $"LOD{desc.LOD}_" : "")}";
                         if (lastMeshIdIdentical)
                             meshName += $"flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}";
                         else
@@ -1263,13 +1264,6 @@ namespace XBC2ModelDecomp
         public void ReadTextures(Structs.MSRD MSRD, string texturesFolderPath)
         {
             App.PushLog("Reading textures...");
-
-            List<string> DataTextureNames = MSRD.TextureNames.ToList();
-            for (int i = 0; i < MSRD.TextureInfo.Length; i++)
-            {
-                if (MSRD.TextureInfo[i].Unknown1 == 0x10100000)
-                    DataTextureNames.Remove(MSRD.TextureNames[i]);
-            }
 
             List<Structs.LBIM> LBIMs = new List<Structs.LBIM>();
             for (int i = 0; i < MSRD.DataItemsCount; i++)

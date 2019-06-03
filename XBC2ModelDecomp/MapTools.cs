@@ -101,8 +101,15 @@ namespace XBC2ModelDecomp
 
             if (App.ShowInfo)
                 foreach (Structs.MapInfo map in MapInfos)
-                    App.PushLog(map.ToString());
+                    App.PushLog("MapInfo:\n" + Structs.ReflectToString(map, 1, 180));
 
+            SaveMapMeshes(WISMDA, MapInfos, MapMXMDs);
+
+            App.PushLog("Done!");
+        }
+
+        public void SaveMapMeshes(Structs.WISMDA WISMDA, Structs.MapInfo[] MapInfos, Structs.MXMD[] MapMXMDs)
+        {
             Structs.XBC1[] MapMeshDatas = WISMDA.FilesBySearch("basemap/poli//");
             Structs.Mesh[] MapMeshes = new Structs.Mesh[MapMeshDatas.Length];
             Structs.MXMD EmptyMXMD = new Structs.MXMD { Version = Int32.MaxValue };
@@ -113,14 +120,29 @@ namespace XBC2ModelDecomp
                 MapMeshes[i] = ft.ReadMesh(model, new BinaryReader(model));
             }
 
-            if (App.ShowInfo)
+            /*if (App.ShowInfo)
                 foreach (Structs.Mesh mesh in MapMeshes)
-                    App.PushLog(mesh.ToString());
+                    App.PushLog(mesh.ToString());*/
 
             for (int i = 0; i < MapInfos.Length; i++)
-                ft.ModelToASCII(MapMeshes, MapMXMDs[i], EmptySKEL, MapInfos[i]);
+            {
+                switch (App.ExportFormat)
+                {
+                    case Structs.ExportFormat.XNALara:
+                        ft.ModelToASCII(MapMeshes, MapMXMDs[i], EmptySKEL, MapInfos[i]);
+                        break;
+                }
+            }
+        }
 
-            App.PushLog("Done!");
+        public void SaveMapTextures()
+        {
+            //fake msrd data items with type of Texture
+            //that way i can feed it external texture files, though I'll probably have to chop up the actual texture files
+            //the beginning of each seamwork texture has the proper info for each texture + size, so read from that
+
+            //save each texture pack file in a separate folder?
+            //also, if there are higher-res versions of textures, where are they?
         }
     }
 }

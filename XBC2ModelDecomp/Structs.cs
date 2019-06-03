@@ -729,7 +729,8 @@ namespace XBC2ModelDecomp
             public int MeshTableDataOffset;
             public int MeshTableDataCount;
 
-            public int TableIndexOffset2;
+            public int MeshFileLookupOffset;
+            public int MeshFileLookupCount;
 
             public short[] MeshFileLookup;
 
