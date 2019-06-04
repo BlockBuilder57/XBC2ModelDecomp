@@ -58,6 +58,31 @@ namespace XBC2ModelDecomp
             }
         }
 
+        public static void ReadXBC1Datas(Stream sXBC1s, ref Structs.XBC1[] XBC1s, bool forceReread = false)
+        {
+            for (int i = 0; i < XBC1s.Length; i++)
+            {
+                if (XBC1s[i].Data == null || forceReread)
+                    XBC1s[i].Data = ReadZlib(sXBC1s, XBC1s[i].OffsetInFile, XBC1s[i].FileSize, XBC1s[i].CompressedSize);
+            }
+        }
+
+        public static MemoryStream ReadZlib(Stream sZlib, int Offset, int FileSize, int CompressedSize)
+        {
+            sZlib.Seek(Offset, SeekOrigin.Begin);
+            byte[] fileBuffer = new byte[FileSize >= CompressedSize ? FileSize : CompressedSize];
+
+            MemoryStream msFile = new MemoryStream();
+            sZlib.Read(fileBuffer, 0, CompressedSize);
+
+            ZOutputStream ZOutFile = new ZOutputStream(msFile);
+            ZOutFile.Write(fileBuffer, 0, CompressedSize);
+            ZOutFile.Flush();
+
+            msFile.Seek(0L, SeekOrigin.Begin);
+            return msFile;
+        }
+
         public List<int>[] VerifyMeshes(Structs.Mesh Mesh, Structs.MXMD MXMD)
         {
             if (MXMD.Version == Int32.MaxValue)
@@ -128,23 +153,13 @@ namespace XBC2ModelDecomp
                 FileSize = brXBC1.ReadInt32(),
                 CompressedSize = brXBC1.ReadInt32(),
                 Unknown1 = brXBC1.ReadInt32(),
-                Name = ReadNullTerminatedString(brXBC1)
+                Name = ReadNullTerminatedString(brXBC1),
+                OffsetInFile = offset
             };
 
             if (saveStream)
             {
-                sXBC1.Seek(offset + 0x30, SeekOrigin.Begin);
-                byte[] fileBuffer = new byte[XBC1.FileSize >= XBC1.CompressedSize ? XBC1.FileSize : XBC1.CompressedSize];
-
-                MemoryStream msFile = new MemoryStream();
-                sXBC1.Read(fileBuffer, 0, XBC1.CompressedSize);
-
-                ZOutputStream ZOutFile = new ZOutputStream(msFile);
-                ZOutFile.Write(fileBuffer, 0, XBC1.CompressedSize);
-                ZOutFile.Flush();
-
-                msFile.Seek(0L, SeekOrigin.Begin);
-                XBC1.Data = msFile;
+                XBC1.Data = ReadZlib(sXBC1, offset + 0x30, XBC1.FileSize, XBC1.CompressedSize);
             }
 
             return XBC1;
@@ -461,7 +476,7 @@ namespace XBC2ModelDecomp
                 MSRD.TOC[i].Offset = brMSRD.ReadInt32();
 
                 App.PushLog($"Decompressing file{i} in MSRD...");
-                MSRD.TOC[i].Data = ReadXBC1(sMSRD, brMSRD, MSRD.TOC[i].Offset).Data;
+                MSRD.TOC[i].Data = ReadXBC1(sMSRD, brMSRD, MSRD.TOC[i].Offset, true).Data;
                 if (App.SaveRawFiles)
                     SaveStreamToFile(MSRD.TOC[i].Data, $"file{i}.bin", App.CurOutputPath + @"\RawFiles\");
             }
@@ -1041,19 +1056,19 @@ namespace XBC2ModelDecomp
                         };
                     }
                 }
-            }
 
-            if (map.TableIndexOffset != 0)
-            {
-                sMap.Seek(map.TableIndexOffset + 0x8, SeekOrigin.Begin);
-                map.MeshFileLookupOffset = brMap.ReadInt32();
-                map.MeshFileLookupCount = brMap.ReadInt32();
-
-                sMap.Seek(map.TableIndexOffset + map.MeshFileLookupOffset, SeekOrigin.Begin);
-                map.MeshFileLookup = new short[map.MeshFileLookupCount];
-                for (int i = 0; i < map.MeshFileLookupCount; i++)
+                if (map.TableIndexOffset != 0 && map.PopFileIndexOffset == 0)
                 {
-                    map.MeshFileLookup[i] = brMap.ReadInt16();
+                    sMap.Seek(map.TableIndexOffset + 0x8, SeekOrigin.Begin);
+                    map.MeshFileLookupOffset = brMap.ReadInt32();
+                    map.MeshFileLookupCount = brMap.ReadInt32();
+
+                    sMap.Seek(map.TableIndexOffset + map.MeshFileLookupOffset, SeekOrigin.Begin);
+                    map.MeshFileLookup = new short[map.MeshFileLookupCount];
+                    for (int i = 0; i < map.MeshFileLookupCount; i++)
+                    {
+                        map.MeshFileLookup[i] = brMap.ReadInt16();
+                    }
                 }
             }
 

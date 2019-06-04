@@ -135,6 +135,8 @@ namespace XBC2ModelDecomp
 
             public MemoryStream Data;
 
+            public int OffsetInFile; //not in struct
+
             public override string ToString()
             {
                 string output = "xbc1:";
@@ -662,16 +664,22 @@ namespace XBC2ModelDecomp
         //wismda
         public struct WISMDA
         {
+            public Stream Data;
             public XBC1[] Files;
 
             public XBC1 FileBySearch(string search)
             {
-                return Files[Array.FindIndex(Files, x => x.Name.Contains(search))];
+                XBC1 xbc1 = Files[Array.FindIndex(Files, x => x.Name.Contains(search))];
+                xbc1.Data = FormatTools.ReadZlib(Data, xbc1.OffsetInFile + 0x30, xbc1.FileSize, xbc1.CompressedSize);
+                return xbc1;
             }
 
             public XBC1[] FilesBySearch(string search, bool unique = false)
             {
-                return Files.Where(x => x.Name.Contains(search)).ToArray();
+                XBC1[] xbc1s = Files.Where(x => x.Name.Contains(search)).ToArray();
+                for (int i = 0; i < xbc1s.Length; i++)
+                    xbc1s[i].Data = FormatTools.ReadZlib(Data, xbc1s[i].OffsetInFile + 0x30, xbc1s[i].FileSize, xbc1s[i].CompressedSize);
+                return xbc1s;
             }
         }
 

@@ -52,6 +52,7 @@ namespace XBC2ModelDecomp
 
             Structs.WISMDA WISMDA = new Structs.WISMDA
             {
+                Data = fileStream,
                 Files = new Structs.XBC1[magicOccurences.Count]
             };
 
@@ -61,7 +62,7 @@ namespace XBC2ModelDecomp
                 App.PushLog($"Saving {magicOccurences.Count} file(s) to disk...");
             for (int i = 0; i < magicOccurences.Count; i++)
             {
-                WISMDA.Files[i] = ft.ReadXBC1(fileStream, binaryReader, magicOccurences[i]);
+                WISMDA.Files[i] = ft.ReadXBC1(fileStream, binaryReader, magicOccurences[i], App.SaveRawFiles);
 
                 if (App.SaveRawFiles)
                 {
@@ -73,12 +74,11 @@ namespace XBC2ModelDecomp
                     if (App.ShowInfo)
                         App.PushLog($"Saved {saveName} to disk...");
                     filenames.Add(WISMDA.Files[i].Name);
+
+                    WISMDA.Files[i].Data.Dispose();
                 }
             }
             App.PushLog("Done!");
-            fileStream.Dispose();
-
-            
 
             if (App.ExportTextures)
             {
