@@ -138,14 +138,7 @@ namespace XBC2ModelDecomp
             public override string ToString()
             {
                 string output = "xbc1:";
-
-                output += $"\n\tVersion: {Version}";
-                output += $"\n\tFileSize: 0x{FileSize:X}";
-                output += $"\n\tCompressedSize: 0x{CompressedSize:X}";
-                output += $"\n\tUnknown1: 0x{Unknown1:X}";
-
-                output += $"\n\tName: {Name}";
-
+                output += ReflectToString(this);
                 return output;
             }
         }
@@ -676,7 +669,7 @@ namespace XBC2ModelDecomp
                 return Files[Array.FindIndex(Files, x => x.Name.Contains(search))];
             }
 
-            public XBC1[] FilesBySearch(string search)
+            public XBC1[] FilesBySearch(string search, bool unique = false)
             {
                 return Files.Where(x => x.Name.Contains(search)).ToArray();
             }
@@ -717,7 +710,16 @@ namespace XBC2ModelDecomp
             public int MeshTableOffset;
             public int MaterialTableOffset;
 
-            public byte[] Unknown4; //0x24 long
+            public int Unknown4;
+            public int LODOffset;
+            public int Unknown5;
+            public int Unknown6;
+            public int Unknown7;
+
+            public int PopFileIndexOffset;
+            public int PopFileIndexCount;
+            public int Unknown8;
+            public int Unknown9;
 
             public int TableIndexOffset;
 
@@ -736,6 +738,12 @@ namespace XBC2ModelDecomp
 
             public MapInfoMeshTable[] MeshTables;
 
+            public int LODDataCount;
+            public int LODDataOffset;
+
+            public List<int> LODSomething;
+            public int[] PopFileSomething;
+
             public override string ToString()
             {
                 string output = "MapInfo:";
@@ -750,6 +758,22 @@ namespace XBC2ModelDecomp
             public int MeshCount;
 
             public MXMDMeshDescriptor[] Descriptors;
+        }
+
+        public struct SeamworkTexture
+        {
+            public int TableCount;
+            public int TableOffset;
+
+            public SeamworkTextureTable[] Table;
+        }
+
+        public struct SeamworkTextureTable
+        {
+            public int Unknown1;
+            public int Size;
+            public int Offset;
+            public int Unknown2;
         }
     }
 }

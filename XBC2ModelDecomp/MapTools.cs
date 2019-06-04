@@ -78,7 +78,25 @@ namespace XBC2ModelDecomp
             App.PushLog("Done!");
             fileStream.Dispose();
 
-            Structs.XBC1[] MapInfoDatas = WISMDA.FilesBySearch("bina_basefix.temp_wi").ToArray();
+            
+
+            if (App.ExportTextures)
+            {
+                string texturesFolderPath = App.CurOutputPath + @"\Textures";
+                if (!Directory.Exists(texturesFolderPath))
+                    Directory.CreateDirectory(texturesFolderPath);
+                SaveMapTextures(WISMDA, texturesFolderPath);
+            }
+
+            SaveMapMeshes(WISMDA);
+            SaveMapProps(WISMDA);
+
+            App.PushLog("Done!");
+        }
+
+        public void SaveMapMeshes(Structs.WISMDA WISMDA)
+        {
+            Structs.XBC1[] MapInfoDatas = WISMDA.FilesBySearch("bina_basefix.temp_wi");
             Structs.MXMD[] MapMXMDs = new Structs.MXMD[MapInfoDatas.Length];
             Structs.MapInfo[] MapInfos = new Structs.MapInfo[MapInfoDatas.Length];
             for (int i = 0; i < MapInfoDatas.Length; i++)
@@ -103,13 +121,6 @@ namespace XBC2ModelDecomp
                 foreach (Structs.MapInfo map in MapInfos)
                     App.PushLog("MapInfo:\n" + Structs.ReflectToString(map, 1, 180));
 
-            SaveMapMeshes(WISMDA, MapInfos, MapMXMDs);
-
-            App.PushLog("Done!");
-        }
-
-        public void SaveMapMeshes(Structs.WISMDA WISMDA, Structs.MapInfo[] MapInfos, Structs.MXMD[] MapMXMDs)
-        {
             Structs.XBC1[] MapMeshDatas = WISMDA.FilesBySearch("basemap/poli//");
             Structs.Mesh[] MapMeshes = new Structs.Mesh[MapMeshDatas.Length];
             Structs.MXMD EmptyMXMD = new Structs.MXMD { Version = Int32.MaxValue };
@@ -119,10 +130,6 @@ namespace XBC2ModelDecomp
                 MemoryStream model = MapMeshDatas[i].Data;
                 MapMeshes[i] = ft.ReadMesh(model, new BinaryReader(model));
             }
-
-            /*if (App.ShowInfo)
-                foreach (Structs.Mesh mesh in MapMeshes)
-                    App.PushLog(mesh.ToString());*/
 
             for (int i = 0; i < MapInfos.Length; i++)
             {
@@ -135,14 +142,99 @@ namespace XBC2ModelDecomp
             }
         }
 
-        public void SaveMapTextures()
+        public void SaveMapProps(Structs.WISMDA WISMDA)
         {
-            //fake msrd data items with type of Texture
-            //that way i can feed it external texture files, though I'll probably have to chop up the actual texture files
-            //the beginning of each seamwork texture has the proper info for each texture + size, so read from that
+            Structs.XBC1[] MapInfoDatas = WISMDA.FilesBySearch("seamwork/inst/out");
+            Structs.MXMD[] MapMXMDs = new Structs.MXMD[MapInfoDatas.Length];
+            Structs.MapInfo[] MapInfos = new Structs.MapInfo[MapInfoDatas.Length];
+            for (int i = 0; i < MapInfoDatas.Length; i++)
+            {
+                MapInfos[i] = ft.ReadMapInfo(MapInfoDatas[i].Data, new BinaryReader(MapInfoDatas[i].Data));
 
-            //save each texture pack file in a separate folder?
-            //also, if there are higher-res versions of textures, where are they?
+                MapMXMDs[i] = new Structs.MXMD { Version = 0xFF };
+                MapMXMDs[i].ModelStruct.Meshes = new Structs.MXMDMeshes[MapInfos[i].MeshTables.Length];
+                for (int j = 0; j < MapInfos[i].MeshTables.Length; j++)
+                {
+                    MapMXMDs[i].Materials = MapInfos[i].Materials;
+                    MapMXMDs[i].ModelStruct.MeshesCount = MapInfos[i].MeshTableDataCount;
+                    MapMXMDs[i].ModelStruct.Meshes[j].TableCount = MapInfos[i].MeshTables[j].MeshCount;
+                    MapMXMDs[i].ModelStruct.Meshes[j].Descriptors = MapInfos[i].MeshTables[j].Descriptors;
+                }
+            }
+
+            if (App.ShowInfo)
+                foreach (Structs.MapInfo map in MapInfos)
+                    App.PushLog("PropInfo:\n" + Structs.ReflectToString(map, 1, 180));
+
+            Structs.XBC1[] MapMeshDatas = WISMDA.FilesBySearch("seamwork/inst/mdl");
+            Structs.Mesh[] MapMeshes = new Structs.Mesh[MapMeshDatas.Length];
+            Structs.MXMD EmptyMXMD = new Structs.MXMD { Version = Int32.MaxValue };
+            Structs.SKEL EmptySKEL = new Structs.SKEL { Unknown1 = Int32.MaxValue };
+            for (int i = 0; i < MapMeshes.Length; i++)
+            {
+                MemoryStream model = MapMeshDatas[i].Data;
+                MapMeshes[i] = ft.ReadMesh(model, new BinaryReader(model));
+            }
+
+            for (int i = 0; i < MapInfos.Length; i++)
+            {
+                switch (App.ExportFormat)
+                {
+                    case Structs.ExportFormat.XNALara:
+                        ft.ModelToASCII(MapMeshes, MapMXMDs[i], EmptySKEL, MapInfos[i]);
+                        break;
+                }
+            }
+        }
+
+        public void SaveMapTextures(Structs.WISMDA WISMDA, string texturesFolderPath)
+        {
+            //"cache/" contains all base colors and normals
+            //"seamwork/tecpac//" contains PBR materials but in severely disjointed fashion
+            //"seamwork/texture//" contains PBR materials and some base color things, seems to be for props exclusively?
+
+            List<Structs.LBIM> TextureLBIMs = new List<Structs.LBIM>();
+            List<Structs.XBC1> CacheAndTecPac = WISMDA.FilesBySearch("cache/").ToList();
+            CacheAndTecPac.AddRange(WISMDA.FilesBySearch("seamwork/tecpac"));
+            foreach (Structs.XBC1 xbc1 in CacheAndTecPac)
+            {
+                BinaryReader brTexture = new BinaryReader(xbc1.Data);
+                Structs.LBIM lbim = ft.ReadLBIM(xbc1.Data, brTexture, 0, (int)xbc1.Data.Length);
+                if (lbim.Data != null && lbim.Width > 15 && lbim.Height > 15) //get rid of the tinies
+                    TextureLBIMs.Add(lbim);
+            }
+
+            foreach (Structs.XBC1 xbc1 in WISMDA.FilesBySearch("seamwork/texture"))
+            {
+                BinaryReader brTexture = new BinaryReader(xbc1.Data);
+                Structs.SeamworkTexture smwrkTexture = new Structs.SeamworkTexture
+                {
+                    TableCount = brTexture.ReadInt32(),
+                    TableOffset = brTexture.ReadInt32()
+                };
+
+                smwrkTexture.Table = new Structs.SeamworkTextureTable[smwrkTexture.TableCount];
+                xbc1.Data.Seek(smwrkTexture.TableOffset, SeekOrigin.Begin);
+                for (int i = 0; i < smwrkTexture.TableCount; i++)
+                {
+                    smwrkTexture.Table[i] = new Structs.SeamworkTextureTable
+                    {
+                        Unknown1 = brTexture.ReadInt32(),
+                        Size = brTexture.ReadInt32(),
+                        Offset = brTexture.ReadInt32(),
+                        Unknown2 = brTexture.ReadInt32()
+                    };
+                }
+                foreach (Structs.SeamworkTextureTable table in smwrkTexture.Table)
+                {
+                    Structs.LBIM lbim = ft.ReadLBIM(xbc1.Data, brTexture, table.Offset, table.Size);
+
+                    if (lbim.Data != null && lbim.Width > 15 && lbim.Height > 15) //get rid of the tinies
+                        TextureLBIMs.Add(lbim);
+                }
+            }
+
+            ft.ReadTextures(new Structs.MSRD { Version = Int32.MaxValue }, texturesFolderPath, TextureLBIMs);
         }
     }
 }

@@ -109,7 +109,7 @@ namespace XBC2ModelDecomp
             return VerifiedMeshes;
         }
 
-        public Structs.XBC1 ReadXBC1(Stream sXBC1, BinaryReader brXBC1, int offset)
+        public Structs.XBC1 ReadXBC1(Stream sXBC1, BinaryReader brXBC1, int offset, bool saveStream = true)
         {
             if (sXBC1 == null || brXBC1 == null || offset > sXBC1.Length || offset < 0)
                 return new Structs.XBC1 { Version = Int32.MaxValue };
@@ -131,18 +131,21 @@ namespace XBC2ModelDecomp
                 Name = ReadNullTerminatedString(brXBC1)
             };
 
-            sXBC1.Seek(offset + 0x30, SeekOrigin.Begin);
-            byte[] fileBuffer = new byte[XBC1.FileSize >= XBC1.CompressedSize ? XBC1.FileSize : XBC1.CompressedSize];
+            if (saveStream)
+            {
+                sXBC1.Seek(offset + 0x30, SeekOrigin.Begin);
+                byte[] fileBuffer = new byte[XBC1.FileSize >= XBC1.CompressedSize ? XBC1.FileSize : XBC1.CompressedSize];
 
-            MemoryStream msFile = new MemoryStream();
-            sXBC1.Read(fileBuffer, 0, XBC1.CompressedSize);
+                MemoryStream msFile = new MemoryStream();
+                sXBC1.Read(fileBuffer, 0, XBC1.CompressedSize);
 
-            ZOutputStream ZOutFile = new ZOutputStream(msFile);
-            ZOutFile.Write(fileBuffer, 0, XBC1.CompressedSize);
-            ZOutFile.Flush();
+                ZOutputStream ZOutFile = new ZOutputStream(msFile);
+                ZOutFile.Write(fileBuffer, 0, XBC1.CompressedSize);
+                ZOutFile.Flush();
 
-            msFile.Seek(0L, SeekOrigin.Begin);
-            XBC1.Data = msFile;
+                msFile.Seek(0L, SeekOrigin.Begin);
+                XBC1.Data = msFile;
+            }
 
             return XBC1;
         }
@@ -334,7 +337,7 @@ namespace XBC2ModelDecomp
             sLBIM.Seek(Offset + Size - 0x4, SeekOrigin.Begin);
             if (brLBIM.ReadInt32() != 0x4D49424C)
             {
-                App.PushLog("Texture magic is incorrect!");
+                App.PushLog($"Texture magic is incorrect! Offset {Offset:X}, size {Size:X}, cur position {sLBIM.Position:X}");
                 return default(Structs.LBIM);
             }
 
@@ -962,78 +965,120 @@ namespace XBC2ModelDecomp
                 MeshTableOffset = brMap.ReadInt32(),
                 MaterialTableOffset = brMap.ReadInt32(),
 
-                Unknown4 = brMap.ReadBytes(0x24),
+                Unknown4 = brMap.ReadInt32(),
+                LODOffset = brMap.ReadInt32(),
+                Unknown5 = brMap.ReadInt32(),
+                Unknown6 = brMap.ReadInt32(),
+                Unknown7 = brMap.ReadInt32(),
+
+                PopFileIndexOffset = brMap.ReadInt32(),
+                PopFileIndexCount = brMap.ReadInt32(),
+                Unknown8 = brMap.ReadInt32(),
+                Unknown9 = brMap.ReadInt32(),
 
                 TableIndexOffset = brMap.ReadInt32()
             };
 
-            sMap.Seek(map.MaterialTableOffset, SeekOrigin.Begin);
-            map.MaterialHeader = new Structs.MXMDMaterialHeader
+            if (map.MaterialTableOffset != 0)
             {
-                Offset = brMap.ReadInt32(),
-                Count = brMap.ReadInt32()
-            };
-
-            map.Materials = new Structs.MXMDMaterial[map.MaterialHeader.Count];
-            for (int i = 0; i < map.MaterialHeader.Count; i++)
-            {
-                sMap.Seek(map.MaterialTableOffset + map.MaterialHeader.Offset + (i * 0x74), SeekOrigin.Begin);
-                map.Materials[i] = new Structs.MXMDMaterial
+                sMap.Seek(map.MaterialTableOffset, SeekOrigin.Begin);
+                map.MaterialHeader = new Structs.MXMDMaterialHeader
                 {
-                    NameOffset = brMap.ReadInt32(),
-                    Unknown1 = brMap.ReadBytes(0x70)
+                    Offset = brMap.ReadInt32(),
+                    Count = brMap.ReadInt32()
                 };
 
-                sMap.Seek(map.MaterialTableOffset + map.Materials[i].NameOffset, SeekOrigin.Begin);
-                map.Materials[i].Name = ReadNullTerminatedString(brMap);
-            }
-
-            sMap.Seek(map.MeshTableOffset + 0x1C, SeekOrigin.Begin);
-            map.MeshTableDataOffset = brMap.ReadInt32();
-            map.MeshTableDataCount = brMap.ReadInt32();
-
-            sMap.Seek(map.TableIndexOffset + 0x8, SeekOrigin.Begin);
-            map.MeshFileLookupOffset = brMap.ReadInt32();
-            map.MeshFileLookupCount = brMap.ReadInt32();
-
-            sMap.Seek(map.TableIndexOffset + map.MeshFileLookupOffset, SeekOrigin.Begin);
-            map.MeshFileLookup = new short[map.MeshFileLookupCount];
-            for (int i = 0; i < map.MeshFileLookupCount; i++)
-            {
-                map.MeshFileLookup[i] = brMap.ReadInt16();
-            }
-
-            map.MeshTables = new Structs.MapInfoMeshTable[map.MeshTableDataCount];
-            for (int i = 0; i < map.MeshTableDataCount; i++)
-            {
-                sMap.Seek(map.MeshTableOffset + map.MeshTableDataOffset + (i * 0x44), SeekOrigin.Begin);
-                map.MeshTables[i].MeshOffset = brMap.ReadInt32();
-                map.MeshTables[i].MeshCount = brMap.ReadInt32();
-
-                map.MeshTables[i].Descriptors = new Structs.MXMDMeshDescriptor[map.MeshTables[i].MeshCount];
-                sMap.Seek(map.MeshTableOffset + map.MeshTables[i].MeshOffset, SeekOrigin.Begin);
-                for (int j = 0; j < map.MeshTables[i].MeshCount; j++)
+                map.Materials = new Structs.MXMDMaterial[map.MaterialHeader.Count];
+                for (int i = 0; i < map.MaterialHeader.Count; i++)
                 {
-                    map.MeshTables[i].Descriptors[j] = new Structs.MXMDMeshDescriptor
+                    sMap.Seek(map.MaterialTableOffset + map.MaterialHeader.Offset + (i * 0x74), SeekOrigin.Begin);
+                    map.Materials[i] = new Structs.MXMDMaterial
                     {
-                        ID = brMap.ReadInt32(),
-
-                        Descriptor = brMap.ReadInt32(),
-
-                        VertTableIndex = brMap.ReadInt16(),
-                        FaceTableIndex = brMap.ReadInt16(),
-
-                        Unknown1 = brMap.ReadInt16(),
-                        MaterialID = brMap.ReadInt16(),
-                        Unknown2 = brMap.ReadBytes(0xC),
-                        Unknown3 = brMap.ReadInt16(),
-
-                        LOD = brMap.ReadInt16(),
-                        Unknown4 = brMap.ReadInt32(),
-
-                        Unknown5 = brMap.ReadBytes(0xC)
+                        NameOffset = brMap.ReadInt32(),
+                        Unknown1 = brMap.ReadBytes(0x70)
                     };
+
+                    sMap.Seek(map.MaterialTableOffset + map.Materials[i].NameOffset, SeekOrigin.Begin);
+                    map.Materials[i].Name = ReadNullTerminatedString(brMap);
                 }
+            }
+
+            if (map.MeshTableOffset != 0)
+            {
+                sMap.Seek(map.MeshTableOffset + 0x1C, SeekOrigin.Begin);
+                map.MeshTableDataOffset = brMap.ReadInt32();
+                map.MeshTableDataCount = brMap.ReadInt32();
+
+                map.MeshTables = new Structs.MapInfoMeshTable[map.MeshTableDataCount];
+                for (int i = 0; i < map.MeshTableDataCount; i++)
+                {
+                    sMap.Seek(map.MeshTableOffset + map.MeshTableDataOffset + (i * 0x44), SeekOrigin.Begin);
+                    map.MeshTables[i].MeshOffset = brMap.ReadInt32();
+                    map.MeshTables[i].MeshCount = brMap.ReadInt32();
+
+                    map.MeshTables[i].Descriptors = new Structs.MXMDMeshDescriptor[map.MeshTables[i].MeshCount];
+                    sMap.Seek(map.MeshTableOffset + map.MeshTables[i].MeshOffset, SeekOrigin.Begin);
+                    for (int j = 0; j < map.MeshTables[i].MeshCount; j++)
+                    {
+                        map.MeshTables[i].Descriptors[j] = new Structs.MXMDMeshDescriptor
+                        {
+                            ID = brMap.ReadInt32(),
+
+                            Descriptor = brMap.ReadInt32(),
+
+                            VertTableIndex = brMap.ReadInt16(),
+                            FaceTableIndex = brMap.ReadInt16(),
+
+                            Unknown1 = brMap.ReadInt16(),
+                            MaterialID = brMap.ReadInt16(),
+                            Unknown2 = brMap.ReadBytes(0xC),
+                            Unknown3 = brMap.ReadInt16(),
+
+                            LOD = brMap.ReadInt16(),
+                            Unknown4 = brMap.ReadInt32(),
+
+                            Unknown5 = brMap.ReadBytes(0xC)
+                        };
+                    }
+                }
+            }
+
+            if (map.TableIndexOffset != 0)
+            {
+                sMap.Seek(map.TableIndexOffset + 0x8, SeekOrigin.Begin);
+                map.MeshFileLookupOffset = brMap.ReadInt32();
+                map.MeshFileLookupCount = brMap.ReadInt32();
+
+                sMap.Seek(map.TableIndexOffset + map.MeshFileLookupOffset, SeekOrigin.Begin);
+                map.MeshFileLookup = new short[map.MeshFileLookupCount];
+                for (int i = 0; i < map.MeshFileLookupCount; i++)
+                {
+                    map.MeshFileLookup[i] = brMap.ReadInt16();
+                }
+            }
+
+            if (map.LODOffset != 0)
+            {
+                sMap.Seek(map.LODOffset + 0x4, SeekOrigin.Begin);
+                map.LODDataCount = brMap.ReadInt32();
+                map.LODDataOffset = brMap.ReadInt32();
+
+                map.LODSomething = new List<int>();
+                for (int i = 0; i < map.LODDataCount; i++)
+                {
+                    sMap.Seek(map.LODOffset + map.LODDataOffset + (i * 0x8), SeekOrigin.Begin);
+                    brMap.ReadInt32();
+                    for (int j = 0; j < brMap.ReadInt32(); j++)
+                        map.LODSomething.Add(i);
+                }
+            }
+
+            if (map.PopFileIndexOffset != 0)
+            {
+                map.PopFileSomething = new int[map.PopFileIndexCount];
+                sMap.Seek(map.PopFileIndexOffset, SeekOrigin.Begin);
+                for (int i = 0; i < map.PopFileIndexCount; i++)
+                    map.PopFileSomething[i] = brMap.ReadInt32();
             }
 
             return map;
@@ -1048,8 +1093,10 @@ namespace XBC2ModelDecomp
             //begin ascii
             //bone time
             string filename = $@"{App.CurOutputPath}\{App.CurFileNameNoExt}";
-            if (MapInfo.Unknown1 != Int32.MaxValue)
+            if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
                 filename += $"_mesh{MapInfo.MeshFileLookup.Min()}-{MapInfo.MeshFileLookup.Max()}";
+            else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PopFileIndexOffset != 0)
+                filename += $"_props_mesh{MapInfo.PopFileSomething.Min()}-{MapInfo.PopFileSomething.Max()}";
             StreamWriter asciiWriter = new StreamWriter(filename + ".ascii");
             if (SKEL.Unknown1 != Int32.MaxValue)
             {
@@ -1073,10 +1120,16 @@ namespace XBC2ModelDecomp
             asciiWriter.WriteLine(ValidMeshes.Sum(x => x.Count));
             for (int i = 0; i < MXMD.ModelStruct.MeshesCount; i++)
             {
-                if (MapInfo.Unknown1 != Int32.MaxValue)
+                if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
                 {
                     App.PushLog($"I think this is one of them map thingers - {i} gets {MapInfo.MeshFileLookup[i]}");
                     Mesh = Meshes[MapInfo.MeshFileLookup[i]];
+                    ValidMeshes = VerifyMeshes(Mesh, MXMD);
+                }
+                else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PopFileIndexOffset != 0)
+                {
+                    App.PushLog($"I think this is one of them prop thingers");
+                    Mesh = Meshes[MapInfo.PopFileSomething[i]];
                     ValidMeshes = VerifyMeshes(Mesh, MXMD);
                 }
 
@@ -1261,11 +1314,13 @@ namespace XBC2ModelDecomp
             model.SaveGLB($@"{App.CurOutputPath}\{App.CurFileNameNoExt + ".glb"}");
         }
 
-        public void ReadTextures(Structs.MSRD MSRD, string texturesFolderPath)
+        public void ReadTextures(Structs.MSRD MSRD, string texturesFolderPath, List<Structs.LBIM> LBIMs = null)
         {
             App.PushLog("Reading textures...");
 
-            List<Structs.LBIM> LBIMs = new List<Structs.LBIM>();
+            if (LBIMs == null)
+                LBIMs = new List<Structs.LBIM>();
+            
             for (int i = 0; i < MSRD.DataItemsCount; i++)
             {
                 Structs.MSRDDataItem dataItem = MSRD.DataItems[i];
@@ -1351,8 +1406,15 @@ namespace XBC2ModelDecomp
                 }
 
                 //this will rewrite the small versions of the textures, but that's not a big deal considering they're so tiny
-                int NameIndex = i < MSRD.TextureInfo.Length ? i : MSRD.TextureIds[i % MSRD.TextureInfo.Length];
-                string filename = $@"{texturesFolderPath}\{NameIndex:d2}.{MSRD.TextureNames[NameIndex]}";
+                string filename = $@"{texturesFolderPath}\";
+                if (MSRD.DataItemsCount > 0)
+                {
+                    int NameIndex = i < MSRD.TextureInfo.Length ? i : MSRD.TextureIds[i % MSRD.TextureInfo.Length];
+                    filename = $"{NameIndex:d2}.{MSRD.TextureNames[NameIndex]}";
+                }
+                else
+                    filename += $"file{i}";
+                
 
                 FileStream fsTexture;
                 if (LBIMs[i].Type == 37)
