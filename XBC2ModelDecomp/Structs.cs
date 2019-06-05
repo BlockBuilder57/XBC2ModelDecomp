@@ -14,6 +14,7 @@ namespace XBC2ModelDecomp
         public enum ExportFormat
         {
             None,
+            RawFiles,
             XNALara,
             glTF
         }

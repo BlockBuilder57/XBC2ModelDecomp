@@ -25,6 +25,17 @@ namespace XBC2ModelDecomp
     /// </summary>
     public partial class MainFormTest : Window
     {
+        public string[] Quotes =
+        {
+            "Find me on GitHub!",
+            "\"Humongous hungolomghnonolougongus.\"",
+            "\"Do you wish to change it? The future?\"",
+            "\"Oops! That wasn't supposed to happen...\"",
+            "\"I like your attitude!\"",
+            "Very Funny Quote™ Goes Here",
+            "\"i'm very bad at this\" - Block, 2019"
+        };
+
         public MainFormTest()
         {
             InitializeComponent();
@@ -33,17 +44,8 @@ namespace XBC2ModelDecomp
             CultureInfo culture = CultureInfo.CreateSpecificCulture("en-US");
             Thread.CurrentThread.CurrentCulture = culture;
             Thread.CurrentThread.CurrentUICulture = culture;
-
-            string[] Quotes =
-            {
-                "Find me on GitHub!",
-                "\"Humongous hungolomghnonolougongus.\"",
-                "\"Do you wish to change it? The future?\"",
-                "\"Oops! That wasn't supposed to happen...\"",
-                "\"I like your attitude!\"",
-                "Very Funny Quote Goes Here"
-            };
-            txtConsole.Text = Quotes[new Random().Next(0, Quotes.Length - 1)];
+            
+            txtConsole.Text = Quotes[new Random().Next(0, Quotes.Length)];
 
             this.Title = $"XBC2ModelDecomp v{Assembly.GetEntryAssembly().GetName().Version.ToString(2)}-{ThisAssembly.Git.Commit}";
         }
@@ -55,6 +57,12 @@ namespace XBC2ModelDecomp
                 txtConsole.AppendText(string.IsNullOrWhiteSpace(txtConsole.Text) ? message.ToString() : '\n' + message.ToString());
                 txtConsole.ScrollToEnd();
             });
+        }
+
+        private void TabControlChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (tabConsole != null && tabConsole.IsSelected && txtConsole.LineCount <= 1)
+                txtConsole.Text = Quotes[new Random().Next(0, Quotes.Length)];
         }
 
         private void SelectFile(object sender, RoutedEventArgs e)
@@ -107,7 +115,6 @@ namespace XBC2ModelDecomp
             App.ExportFlexes = EXcbxFlexes.IsChecked.Value;
             App.ExportAnims = EXcbxAnims.IsChecked.Value;
             App.ExportOutlines = EXcbxOutlines.IsChecked.Value;
-            App.SaveRawFiles = EXcbxRawFiles.IsChecked.Value;
             App.ShowInfo = EXcbxShowInfo.IsChecked.Value;
             App.LOD = (int)EXsldLOD.Value;
             App.ExportFormat = (Structs.ExportFormat)EXdropFormat.SelectedIndex;

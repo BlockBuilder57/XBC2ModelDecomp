@@ -10,7 +10,7 @@
         <Label Content="Xenoblade 2 Model Decompilier" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="0" Margin="10,5,0,0" Height="28" Width="520" FontSize="18" FontWeight="Bold" Grid.ColumnSpan="2"/>
         <Label Content="Manipulates model assets inside the files of Xenoblade 2." HorizontalAlignment="Left" VerticalAlignment="Top" Padding="0" Margin="10,30,0,0" Height="18" Width="520" FontSize="12" Grid.ColumnSpan="2"/>
 
-        <TabControl Margin="0,53,0,0" Grid.Row="0" Grid.ColumnSpan="2">
+        <TabControl x:Name="tabControl" Margin="0,53,0,0" Grid.Row="0" Grid.ColumnSpan="2" SelectionChanged="TabControlChanged">
             <TabItem x:Name="tabExtract" Header="Extract">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -36,11 +36,11 @@
                     <CheckBox x:Name="EXcbxAnims" Content="Save animations" ToolTip="Animations will be saved to the Animations folder." HorizontalAlignment="Left" Margin="110,0,0,0" Grid.Row="2" VerticalAlignment="Top"/>
                     <CheckBox x:Name="EXcbxOutlines" Content="Save model outlines" ToolTip="Model outlines will be saved to the mesh file. Outlines are simply duplicates of other meshes." HorizontalAlignment="Left" Margin="220,0,0,0" Grid.Row="2" VerticalAlignment="Top"/>
                     <CheckBox x:Name="EXcbxFlexes" Content="Save facial flexes to model file" ToolTip="Facial flexes will be saved to the model file. This makes the file quite large in size!" HorizontalAlignment="Left" Margin="10,15,0,0" Grid.Row="2" VerticalAlignment="Top"/>
-                    <CheckBox x:Name="EXcbxRawFiles" Content="Save raw files in containers" ToolTip="All raw files contained in the model's files will be extracted to the RawFiles folder." HorizontalAlignment="Left" Margin="200,15,0,0" Grid.Row="2" VerticalAlignment="Top"/>
 
                     <Label Content="Output Format:" Grid.Column="0" Grid.Row="3" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Top" Height="15" Width="85" Padding="0"/>
-                    <ComboBox x:Name="EXdropFormat" Grid.Column="0" Grid.Row="3" Margin="95,0,0,0" Width="100" Padding="2,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" SelectedIndex="1">
+                    <ComboBox x:Name="EXdropFormat" Grid.Column="0" Grid.Row="3" Margin="95,0,0,0" Width="100" Padding="2,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" SelectedIndex="2">
                         <ComboBoxItem Content="None"/>
+                        <ComboBoxItem Content="Raw Files"/>
                         <ComboBoxItem Content="XNALara"/>
                         <ComboBoxItem Content="glTF (no bones)"/>
                     </ComboBox>

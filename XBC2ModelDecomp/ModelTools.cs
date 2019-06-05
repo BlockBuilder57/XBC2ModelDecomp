@@ -49,12 +49,7 @@ namespace XBC2ModelDecomp
                     Directory.CreateDirectory(App.CurOutputPath);
 
                 if (MSRD.TOC.Length > 1 && App.ExportTextures)
-                {
-                    string texturesFolderPath = App.CurOutputPath + @"\Textures";
-                    if (!Directory.Exists(texturesFolderPath))
-                        Directory.CreateDirectory(texturesFolderPath);
-                    ft.ReadTextures(MSRD, texturesFolderPath);
-                }
+                    ft.ReadTextures(MSRD, $@"{App.CurOutputPath}\Textures");
 
                 BinaryReader brCurFile = new BinaryReader(MSRD.TOC[0].Data); //start new file
 
@@ -76,7 +71,7 @@ namespace XBC2ModelDecomp
                     FileStream fsARC = new FileStream(App.CurFilePathAndName + ".arc", FileMode.Open, FileAccess.Read);
                     BinaryReader brARC = new BinaryReader(fsARC);
 
-                    SAR1 = ft.ReadSAR1(fsARC, brARC, @"\RawFiles\", App.SaveRawFiles);
+                    SAR1 = ft.ReadSAR1(fsARC, brARC, @"\RawFiles\", App.ExportFormat == Structs.ExportFormat.RawFiles);
                     BinaryReader brSKEL = new BinaryReader(SAR1.ItemBySearch(".skl").Data);
                     SKEL = ft.ReadSKEL(brSKEL.BaseStream, brSKEL);
                 }

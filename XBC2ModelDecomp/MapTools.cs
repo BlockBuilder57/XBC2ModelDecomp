@@ -58,13 +58,13 @@ namespace XBC2ModelDecomp
 
             List<string> filenames = new List<string>();
 
-            if (App.SaveRawFiles)
+            if (App.ExportFormat == Structs.ExportFormat.RawFiles)
                 App.PushLog($"Saving {magicOccurences.Count} file(s) to disk...");
             for (int i = 0; i < magicOccurences.Count; i++)
             {
-                WISMDA.Files[i] = ft.ReadXBC1(fileStream, binaryReader, magicOccurences[i], App.SaveRawFiles);
+                WISMDA.Files[i] = ft.ReadXBC1(fileStream, binaryReader, magicOccurences[i], App.ExportFormat == Structs.ExportFormat.RawFiles);
 
-                if (App.SaveRawFiles)
+                if (App.ExportFormat == Structs.ExportFormat.RawFiles)
                 {
                     string fileName = WISMDA.Files[i].Name.Split('/').Last();
                     int dupeCount = filenames.Where(x => x == WISMDA.Files[i].Name).Count();
@@ -81,12 +81,7 @@ namespace XBC2ModelDecomp
             App.PushLog("Done!");
 
             if (App.ExportTextures)
-            {
-                string texturesFolderPath = App.CurOutputPath + @"\Textures";
-                if (!Directory.Exists(texturesFolderPath))
-                    Directory.CreateDirectory(texturesFolderPath);
-                SaveMapTextures(WISMDA, texturesFolderPath);
-            }
+                SaveMapTextures(WISMDA, $@"{App.CurOutputPath}\Textures");
 
             SaveMapMeshes(WISMDA);
             SaveMapProps(WISMDA);
@@ -199,10 +194,20 @@ namespace XBC2ModelDecomp
             foreach (Structs.XBC1 xbc1 in CacheAndTecPac)
             {
                 BinaryReader brTexture = new BinaryReader(xbc1.Data);
-                Structs.LBIM lbim = ft.ReadLBIM(xbc1.Data, brTexture, 0, (int)xbc1.Data.Length);
-                if (lbim.Data != null && lbim.Width > 15 && lbim.Height > 15) //get rid of the tinies
-                    TextureLBIMs.Add(lbim);
+                xbc1.Data.Seek(-0x4, SeekOrigin.End);
+                if (brTexture.ReadInt32() == 0x4D49424C)
+                {
+                    Structs.LBIM lbim = ft.ReadLBIM(xbc1.Data, brTexture, 0, (int)xbc1.Data.Length);
+                    if (lbim.Data != null && lbim.Width > 15 && lbim.Height > 15) //get rid of the tinies
+                        TextureLBIMs.Add(lbim);
+                }
             }
+
+            ft.ReadTextures(new Structs.MSRD { Version = Int32.MaxValue }, texturesFolderPath + @"\CacheAndTecPac", TextureLBIMs);
+            foreach (Structs.LBIM lbim in TextureLBIMs)
+                lbim.Data.Dispose();
+
+            TextureLBIMs.Clear();
 
             foreach (Structs.XBC1 xbc1 in WISMDA.FilesBySearch("seamwork/texture"))
             {
@@ -234,7 +239,11 @@ namespace XBC2ModelDecomp
                 }
             }
 
-            ft.ReadTextures(new Structs.MSRD { Version = Int32.MaxValue }, texturesFolderPath, TextureLBIMs);
+            ft.ReadTextures(new Structs.MSRD { Version = Int32.MaxValue }, texturesFolderPath + @"\SeamworkTexture", TextureLBIMs);
+            foreach (Structs.LBIM lbim in TextureLBIMs)
+                lbim.Data.Dispose();
+
+            TextureLBIMs.Clear();
         }
     }
 }

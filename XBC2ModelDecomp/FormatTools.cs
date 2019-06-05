@@ -477,7 +477,7 @@ namespace XBC2ModelDecomp
 
                 App.PushLog($"Decompressing file{i} in MSRD...");
                 MSRD.TOC[i].Data = ReadXBC1(sMSRD, brMSRD, MSRD.TOC[i].Offset, true).Data;
-                if (App.SaveRawFiles)
+                if (App.ExportFormat == Structs.ExportFormat.RawFiles)
                     SaveStreamToFile(MSRD.TOC[i].Data, $"file{i}.bin", App.CurOutputPath + @"\RawFiles\");
             }
 
@@ -1332,6 +1332,9 @@ namespace XBC2ModelDecomp
         public void ReadTextures(Structs.MSRD MSRD, string texturesFolderPath, List<Structs.LBIM> LBIMs = null)
         {
             App.PushLog("Reading textures...");
+
+            if (!Directory.Exists(texturesFolderPath))
+                Directory.CreateDirectory(texturesFolderPath);
 
             if (LBIMs == null)
                 LBIMs = new List<Structs.LBIM>();
