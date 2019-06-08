@@ -115,6 +115,7 @@ namespace XBC2ModelDecomp
             App.ExportFlexes = EXcbxFlexes.IsChecked.Value;
             App.ExportAnims = EXcbxAnims.IsChecked.Value;
             App.ExportOutlines = EXcbxOutlines.IsChecked.Value;
+            App.PropPositions = EXcbxPropPositions.IsChecked.Value;
             App.ShowInfo = EXcbxShowInfo.IsChecked.Value;
             App.LOD = (int)EXsldLOD.Value;
             App.ExportFormat = (Structs.ExportFormat)EXdropFormat.SelectedIndex;

@@ -720,13 +720,13 @@ namespace XBC2ModelDecomp
             public int MaterialTableOffset;
 
             public int Unknown4;
-            public int LODOffset;
+            public int MiscPropertiesTable;
             public int Unknown5;
             public int Unknown6;
             public int Unknown7;
 
-            public int PopFileIndexOffset;
-            public int PopFileIndexCount;
+            public int PropFileIndexOffset;
+            public int PropFileIndexCount;
             public int Unknown8;
             public int Unknown9;
 
@@ -747,11 +747,16 @@ namespace XBC2ModelDecomp
 
             public MapInfoMeshTable[] MeshTables;
 
-            public int LODDataCount;
-            public int LODDataOffset;
+            public int PropLODsDataCount;
+            public int PropLODsDataOffset;
 
-            public List<int> LODSomething;
-            public int[] PopFileSomething;
+            public List<int[]> PropLODs;
+            public int[] PropMeshToFile;
+
+            public int PropPosTableCount;
+            public int PropPosTableOffset;
+
+            public MapInfoPropPosition[] PropPositions;
 
             public override string ToString()
             {
@@ -783,6 +788,22 @@ namespace XBC2ModelDecomp
             public int Size;
             public int Offset;
             public int Unknown2;
+        }
+
+        public struct MapInfoPropPosition
+        {
+            public Quaternion Matrix1;
+            public Quaternion Matrix2;
+            public Quaternion Matrix3;
+
+            public Vector3 Position;
+            public float PosUnknown;
+
+            public byte[] Unknown1; //0x1C long
+
+            public int PropID;
+
+            public byte[] Unknown2; //0x10 long
         }
     }
 }
