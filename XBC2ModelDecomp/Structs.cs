@@ -750,8 +750,9 @@ namespace XBC2ModelDecomp
             public int PropLODsDataCount;
             public int PropLODsDataOffset;
 
-            public List<int[]> PropLODs;
-            public int[] PropMeshToFile;
+            public List<int> PropLODs;
+            public List<int> PropIDs;
+            public int[] PropFileLookup;
 
             public int PropPosTableCount;
             public int PropPosTableOffset;
@@ -790,14 +791,39 @@ namespace XBC2ModelDecomp
             public int Unknown2;
         }
 
+        public struct SeamworkPropPosition
+        {
+            public int TableCount;
+            public int TableOffset;
+
+            public int Unknown1;
+            public int Unknown2;
+
+            public int UnknownTable1Count;
+            public int UnknownTable1Offset;
+
+            public int MapInfoParent;
+
+            public int Unknown3;
+            public int Unknown4;
+            public int Unknown5;
+
+            public int UnknownTable2Count;
+            public int UnknownTable2Offset;
+            public int UnknownTable3Count;
+            public int UnknownTable3Offset;
+
+            public byte[] Unknown6; //0x28 long
+
+            public MapInfoPropPosition[] Positions;
+        }
+
         public struct MapInfoPropPosition
         {
-            public Quaternion Matrix1;
-            public Quaternion Matrix2;
-            public Quaternion Matrix3;
+            public Matrix4x4 Matrix;
 
-            public Vector3 Position;
-            public float PosUnknown;
+            public Vector3 Position; //not in struct
+            public Quaternion Rotation; //not in struct
 
             public byte[] Unknown1; //0x1C long
 

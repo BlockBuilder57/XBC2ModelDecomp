@@ -89,7 +89,7 @@ namespace XBC2ModelDecomp
                         ft.ModelToASCII(new Structs.Mesh[] { Mesh }, MXMD, SKEL, new Structs.MapInfo { Unknown1 = Int32.MaxValue });
                         break;
                     case Structs.ExportFormat.glTF:
-                        ft.ModelToGLTF(Mesh, MXMD, SKEL);
+                        ft.ModelToGLTF(new Structs.Mesh[] { Mesh }, MXMD, SKEL, new Structs.MapInfo { Unknown1 = Int32.MaxValue });
                         break;
                 }
 

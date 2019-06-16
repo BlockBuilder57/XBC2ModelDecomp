@@ -15,7 +15,7 @@ using SharpGLTF.Materials;
 
 namespace XBC2ModelDecomp
 {
-    using GLTFVert = Vertex<VertexPositionNormal, VertexColor1, VertexJoints16x4>;
+    using GLTFVert = VertexBuilder<VertexPositionNormal, VertexColor1, VertexEmpty>;
 
     public class FormatTools
     {
@@ -129,8 +129,7 @@ namespace XBC2ModelDecomp
                     }
                 }
 
-                List<int> ValidMeshes = new List<int>();
-                ValidMeshes.Add(ModifiableLOD); //stupid hack to preserve LOD values back into functions
+                List<int> ValidMeshes = new List<int> { ModifiableLOD }; //stupid hack to preserve LOD values back into functions
                 for (int j = 0; j < MXMD.ModelStruct.Meshes[i].TableCount; j++)
                 {
                     if (MXMD.ModelStruct.Meshes[i].Descriptors[j].LOD == ModifiableLOD || ModifiableLOD == -1)
@@ -240,6 +239,8 @@ namespace XBC2ModelDecomp
             {
                 sSAR1.Seek(SAR1.TOCItems[i].Offset, SeekOrigin.Begin);
                 int BCMagic = brSAR1.ReadInt32();
+                if (BCMagic == 0x4C434843) //CHCL
+                    continue;
                 if (BCMagic != 0x00004342)
                 {
                     App.PushLog("BC is corrupt (or wrong endianness)!");
@@ -735,7 +736,7 @@ namespace XBC2ModelDecomp
             return MXMD;
         }
 
-        public Structs.Mesh ReadMesh(Stream sMesh, BinaryReader brMesh, Vector3 PositionOffset = default(Vector3), Quaternion RotationOffset = default(Quaternion))
+        public Structs.Mesh ReadMesh(Stream sMesh, BinaryReader brMesh)
         {
             App.PushLog("Parsing mesh...");
             sMesh.Seek(0, SeekOrigin.Begin);
@@ -911,7 +912,6 @@ namespace XBC2ModelDecomp
                         {
                             case 0:
                                 Mesh.VertexTables[i].Vertices[j] = new Vector3(brMesh.ReadSingle(), brMesh.ReadSingle(), brMesh.ReadSingle());
-                                Mesh.VertexTables[i].Vertices[j] = RotateVector3(Mesh.VertexTables[i].Vertices[j], RotationOffset) + PositionOffset;
                                 break;
                             case 3:
                                 Mesh.VertexTables[i].Weights[j] = brMesh.ReadInt32();
@@ -991,7 +991,7 @@ namespace XBC2ModelDecomp
             return Mesh;
         }
 
-        public Structs.MapInfo ReadMapInfo(Stream sMap, BinaryReader brMap)
+        public Structs.MapInfo ReadMapInfo(Stream sMap, BinaryReader brMap, bool IsProp)
         {
             Structs.MapInfo map = new Structs.MapInfo
             {
@@ -1094,7 +1094,7 @@ namespace XBC2ModelDecomp
                 }
             }
 
-            if (map.MiscPropertiesTable != 0)
+            if (map.MiscPropertiesTable != 0 && IsProp)
             {
                 sMap.Seek(map.MiscPropertiesTable, SeekOrigin.Begin);
                 int IThinkItsACount = brMap.ReadInt32();
@@ -1103,7 +1103,8 @@ namespace XBC2ModelDecomp
                     map.PropLODsDataCount = brMap.ReadInt32();
                     map.PropLODsDataOffset = brMap.ReadInt32();
 
-                    map.PropLODs = new List<int[]>();
+                    map.PropLODs = new List<int>();
+                    map.PropIDs = new List<int>();
                     sMap.Seek(map.MiscPropertiesTable + map.PropLODsDataOffset, SeekOrigin.Begin);
                     for (int i = 0; i < map.PropLODsDataCount; i++)
                     {
@@ -1111,7 +1112,8 @@ namespace XBC2ModelDecomp
                         int NumberOfProps = brMap.ReadInt32();
                         for (int j = 0; j < NumberOfProps; j++)
                         {
-                            map.PropLODs.Add(new int[] { i, j });
+                            map.PropLODs.Add(j);
+                            map.PropIDs.Add(i);
                         }
                     }
                 }
@@ -1129,12 +1131,7 @@ namespace XBC2ModelDecomp
                         map.PropPositions[i] = new Structs.MapInfoPropPosition
                         {
                             //where do rotations come from?
-                            Matrix1 = new Quaternion(brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle()),
-                            Matrix2 = new Quaternion(brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle()),
-                            Matrix3 = new Quaternion(brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle()),
-
-                            Position = new Vector3(brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle()),
-                            PosUnknown = brMap.ReadSingle(),
+                            Matrix = new Matrix4x4(brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle()),
 
                             Unknown1 = brMap.ReadBytes(0x1C),
 
@@ -1142,19 +1139,73 @@ namespace XBC2ModelDecomp
 
                             Unknown2 = brMap.ReadBytes(0x10)
                         };
+                        map.PropPositions[i].Rotation = new Quaternion(map.PropPositions[i].Matrix.M32, map.PropPositions[i].Matrix.M13, -map.PropPositions[i].Matrix.M21, 1);
+                        map.PropPositions[i].Position = new Vector3(map.PropPositions[i].Matrix.M41, map.PropPositions[i].Matrix.M42, -map.PropPositions[i].Matrix.M43);
                     }
                 }
             }
 
             if (map.PropFileIndexOffset != 0)
             {
-                map.PropMeshToFile = new int[map.PropFileIndexCount];
+                map.PropFileLookup = new int[map.PropFileIndexCount];
                 sMap.Seek(map.PropFileIndexOffset, SeekOrigin.Begin);
                 for (int i = 0; i < map.PropFileIndexCount; i++)
-                    map.PropMeshToFile[i] = brMap.ReadInt32();
+                    map.PropFileLookup[i] = brMap.ReadInt32();
             }
 
             return map;
+        }
+
+        public Structs.SeamworkPropPosition ReadPropPositions(Stream sPos, BinaryReader brPos)
+        {
+            Structs.SeamworkPropPosition pos = new Structs.SeamworkPropPosition
+            {
+                TableCount = brPos.ReadInt32(),
+                TableOffset = brPos.ReadInt32(),
+
+                Unknown1 = brPos.ReadInt32(),
+                Unknown2 = brPos.ReadInt32(),
+
+                UnknownTable1Count = brPos.ReadInt32(),
+                UnknownTable1Offset = brPos.ReadInt32(),
+
+                MapInfoParent = brPos.ReadInt32(),
+
+                Unknown3 = brPos.ReadInt32(),
+                Unknown4 = brPos.ReadInt32(),
+                Unknown5 = brPos.ReadInt32(),
+
+                UnknownTable2Count = brPos.ReadInt32(),
+                UnknownTable2Offset = brPos.ReadInt32(),
+                UnknownTable3Count = brPos.ReadInt32(),
+                UnknownTable3Offset = brPos.ReadInt32(),
+
+                Unknown6 = brPos.ReadBytes(0x28)
+            };
+
+            if (pos.TableOffset != 0)
+            {
+                pos.Positions = new Structs.MapInfoPropPosition[pos.TableCount];
+                sPos.Seek(pos.TableOffset, SeekOrigin.Begin);
+                for (int i = 0; i < pos.TableCount; i++)
+                {
+                    pos.Positions[i] = new Structs.MapInfoPropPosition
+                    {
+                        //where do rotations come from?
+                        Matrix = new Matrix4x4(brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle()),
+
+                        Unknown1 = brPos.ReadBytes(0x1C),
+
+                        PropID = brPos.ReadInt32(),
+
+                        Unknown2 = brPos.ReadBytes(0x10)
+                    };
+                    pos.Positions[i].Rotation = new Quaternion(pos.Positions[i].Matrix.M32, pos.Positions[i].Matrix.M13, -pos.Positions[i].Matrix.M21, 1);
+                    pos.Positions[i].Position = new Vector3(pos.Positions[i].Matrix.M41, pos.Positions[i].Matrix.M42, -pos.Positions[i].Matrix.M43);
+                }
+            }
+
+            return pos;
         }
 
         public void ModelToASCII(Structs.Mesh[] Meshes, Structs.MXMD MXMD, Structs.SKEL SKEL, Structs.MapInfo MapInfo)
@@ -1165,12 +1216,13 @@ namespace XBC2ModelDecomp
 
             //begin ascii
             //bone time
-            string filename = $@"{App.CurOutputPath}\{App.CurFileNameNoExt}";
+            string filename = App.CurFileNameNoExt;
             if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
                 filename += $"_mesh{MapInfo.MeshFileLookup.Min()}-{MapInfo.MeshFileLookup.Max()}";
             else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
-                filename += $"_props_mesh{MapInfo.PropMeshToFile.Min()}-{MapInfo.PropMeshToFile.Max()}";
-            StreamWriter asciiWriter = new StreamWriter(filename + ".ascii");
+                filename += $"_props_mesh{MapInfo.PropFileLookup.Min()}-{MapInfo.PropFileLookup.Max()}";
+
+            StreamWriter asciiWriter = new StreamWriter($@"{App.CurOutputPath}\{filename}.ascii");
             if (SKEL.Unknown1 != Int32.MaxValue)
             {
                 asciiWriter.WriteLine(SKEL.TOCItems[2].Count);
@@ -1190,14 +1242,19 @@ namespace XBC2ModelDecomp
             List<int>[] ValidMeshes = VerifyMeshes(Meshes[0], MXMD);
             int ActualMeshCount = 0;
 
+            for (int i = 0; i < MXMD.ModelStruct.MeshesCount; i++)
+                for (int j = 1; j < ValidMeshes[i].Count; j++)
+                    if ((MXMD.Version == Int32.MaxValue ? default(Structs.MXMDMeshDescriptor) : MXMD.ModelStruct.Meshes[i].Descriptors[ValidMeshes[i][j]]).LOD == (MapInfo.Unknown1 != Int32.MaxValue ? App.LOD : ValidMeshes[i][0]) || App.LOD == -1)
+                        ActualMeshCount++;
+
             Structs.Mesh Mesh = Meshes[0];
-            asciiWriter.WriteLine(Int32.MaxValue);
+            asciiWriter.WriteLine(ActualMeshCount);
             for (int i = 0; i < MXMD.ModelStruct.MeshesCount; i++)
             {
                 if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
                     Mesh = Meshes[MapInfo.MeshFileLookup[i]];
                 else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
-                    Mesh = Meshes[MapInfo.PropMeshToFile[i]];
+                    Mesh = Meshes[MapInfo.PropFileLookup[MapInfo.PropPositions[i].PropID]];
 
                 int lastMeshIdIdenticalCount = 0;
                 bool lastMeshIdIdentical = false;
@@ -1212,9 +1269,8 @@ namespace XBC2ModelDecomp
 
                     int descId = ValidMeshes[i][j];
                     Structs.MXMDMeshDescriptor desc = MXMD.Version == Int32.MaxValue ? default(Structs.MXMDMeshDescriptor) : MXMD.ModelStruct.Meshes[i].Descriptors[descId];
-                    if (desc.LOD == App.LOD || App.LOD == -1)
+                    if (desc.LOD == (MapInfo.Unknown1 != Int32.MaxValue ? App.LOD : ValidMeshes[i][0]) || App.LOD == -1)
                     {
-                        ActualMeshCount++;
                         Structs.MeshVertexTable vertTbl = Mesh.VertexTables[desc.VertTableIndex];
                         Structs.MeshFaceTable faceTbl = Mesh.FaceTables[desc.FaceTableIndex];
                         Structs.MeshVertexTable weightTbl = Mesh.VertexTables.Last();
@@ -1232,7 +1288,12 @@ namespace XBC2ModelDecomp
                                 lowestVertId = faceTbl.Vertices[k];
                         }
 
-                        string meshName = $"file{i}mesh{descId}_{(ValidMeshes[i][0] == -1 ? $"LOD{desc.LOD}_" : "")}";
+                        string meshName = $"mesh{i}";
+                        if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
+                            meshName = $"mesh{MapInfo.MeshFileLookup[i]}";
+                        else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
+                            meshName = $"mesh{MapInfo.PropFileLookup[MapInfo.PropPositions[i].PropID]}";
+                        meshName += $"desc{descId}_{(desc.LOD != App.LOD ? $"LOD{desc.LOD}_" : "")}";
                         if (lastMeshIdIdentical)
                             meshName += $"flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}";
                         else
@@ -1253,6 +1314,8 @@ namespace XBC2ModelDecomp
                             Vector3 vertexPos = vertTbl.Vertices[vrtIndex];
                             if (lastMeshIdIdentical)
                                 vertexPos += Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + lastMeshIdIdenticalCount + 1].Vertices[vrtIndex];
+                            if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0 && App.PropPositions)
+                                vertexPos = RotateVector3(vertexPos, MapInfo.PropPositions[i].Rotation) + MapInfo.PropPositions[i].Position;
                             asciiWriter.Write($"{vertexPos.X:F6} ");
                             asciiWriter.Write($"{vertexPos.Y:F6} ");
                             asciiWriter.Write($"{vertexPos.Z:F6}");
@@ -1313,52 +1376,62 @@ namespace XBC2ModelDecomp
             App.PushLog("Writing .ascii file...");
             asciiWriter.Flush();
             asciiWriter.Dispose();
-
-            string[] lines = File.ReadAllLines(filename + ".ascii");
-            if (SKEL.Unknown1 != Int32.MaxValue)
-                lines[3 * SKEL.TOCItems[2].Count + 1] = ActualMeshCount.ToString();
-            else
-                lines[1] = ActualMeshCount.ToString();
-            File.WriteAllLines(filename + ".ascii", lines);
         }
 
-        public void ModelToGLTF(Structs.Mesh Mesh, Structs.MXMD MXMD, Structs.SKEL SKEL)
+        public void ModelToGLTF(Structs.Mesh[] Meshes, Structs.MXMD MXMD, Structs.SKEL SKEL, Structs.MapInfo MapInfo)
         {
-            List<int>[] ValidMeshes = VerifyMeshes(Mesh, MXMD);
+            List<int>[] ValidMeshes = VerifyMeshes(Meshes[0], MXMD);
 
-            MeshBuilder<VertexPositionNormal, VertexEmpty, VertexJoints16x4>[] meshBuilders = new MeshBuilder<VertexPositionNormal, VertexEmpty, VertexJoints16x4>[MXMD.Materials.Length];
-            Dictionary<string, MaterialBuilder> nameToMat = new Dictionary<string, MaterialBuilder>();
+            List<MeshBuilder<VertexPositionNormal, VertexEmpty, VertexEmpty>> meshBuilders = new List<MeshBuilder<VertexPositionNormal, VertexEmpty, VertexEmpty>>();
+            List<MaterialBuilder> glTFMaterials = new List<MaterialBuilder>();
+            List<Matrix4x4> meshBuildersMatrices = new List<Matrix4x4>();
 
-            for (int i = 0; i < MXMD.MaterialHeader.Count; i++)
+            for (int i = 0; i < MXMD.Materials.Length; i++)
             {
                 MaterialBuilder material = new MaterialBuilder(MXMD.Materials[i].Name)
                     .WithMetallicRoughnessShader()
                     .WithChannelParam(KnownChannels.BaseColor, new Vector4(1, 1, 1, 1));
-                nameToMat.Add(MXMD.Materials[i].Name, material);
+                glTFMaterials.Add(material);
             }
 
-            int lastMeshIdIdenticalCount = 0;
-            bool lastMeshIdIdentical = false;
+            Structs.Mesh Mesh = Meshes[0];
             Structs.MeshVertexTable weightTbl = Mesh.VertexTables.Last();
-            for (int i = 0; i < ValidMeshes.Length; i++)
+            for (int i = 0; i < MXMD.ModelStruct.MeshesCount; i++)
             {
-                for (int j = 0; j < ValidMeshes[i].Count; j++)
+                if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
+                    Mesh = Meshes[MapInfo.MeshFileLookup[i]];
+                else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
+                    Mesh = Meshes[MapInfo.PropFileLookup[MapInfo.PropPositions[i].PropID]];
+
+                int lastMeshIdIdenticalCount = 0;
+                bool lastMeshIdIdentical = false;
+                for (int j = 1; j < ValidMeshes[i].Count; j++)
                 {
-                    lastMeshIdIdentical = j == 0 ? false : ValidMeshes[j - 1] == ValidMeshes[j];
+                    lastMeshIdIdentical = j == 1 ? false : ValidMeshes[i][j - 1] == ValidMeshes[i][j];
 
                     if (lastMeshIdIdentical)
                         lastMeshIdIdenticalCount++;
                     else
                         lastMeshIdIdenticalCount = 0;
 
-                    int meshId = ValidMeshes[i][j];
+                    int descId = ValidMeshes[i][j];
+                    Structs.MXMDMeshDescriptor desc = MXMD.Version == Int32.MaxValue ? default(Structs.MXMDMeshDescriptor) : MXMD.ModelStruct.Meshes[i].Descriptors[descId];
+                    Structs.MeshVertexTable vertTbl = Mesh.VertexTables[desc.VertTableIndex];
+                    Structs.MeshFaceTable faceTbl = Mesh.FaceTables[desc.FaceTableIndex];
+                    Structs.MeshMorphDescriptor morphDesc = new Structs.MeshMorphDescriptor();
+                    if (App.ExportFlexes && Mesh.MorphDataOffset > 0)
+                        morphDesc = Mesh.MorphData.MorphDescriptors.Where(x => x.BufferID == desc.VertTableIndex).FirstOrDefault();
 
-                    Structs.MXMDMeshDescriptor MXMDMesh = MXMD.Version == Int32.MaxValue ? default(Structs.MXMDMeshDescriptor) : MXMD.ModelStruct.Meshes[j].Descriptors[meshId];
-                    Structs.MeshVertexTable vertTbl = Mesh.VertexTables[MXMDMesh.VertTableIndex];
-                    Structs.MeshFaceTable faceTbl = Mesh.FaceTables[MXMDMesh.FaceTableIndex];
-
-                    MeshBuilder<VertexPositionNormal, VertexEmpty, VertexJoints16x4> meshBuilder = new MeshBuilder<VertexPositionNormal, VertexEmpty, VertexJoints16x4>($"mesh{meshId}{(App.LOD == -1 ? $"_LOD{MXMDMesh.LOD}_" : "")}{(lastMeshIdIdentical ? $"flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}" : "")}");
-                    PrimitiveBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexJoints16x4> meshPrim = meshBuilder.UsePrimitive((MXMD.Version == Int32.MaxValue ? new MaterialBuilder("NO_MATERIALS") : nameToMat[MXMD.Materials[MXMDMesh.MaterialID].Name]));
+                    string meshName = $"mesh{i}";
+                    if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
+                        meshName = $"mesh{MapInfo.MeshFileLookup[i]}";
+                    else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
+                        meshName = $"mesh{MapInfo.PropFileLookup[MapInfo.PropPositions[i].PropID]}";
+                    meshName += $"desc{descId}{(desc.LOD != App.LOD ? $"_LOD{desc.LOD}" : "")}";
+                    if (lastMeshIdIdentical)
+                        meshName += $"flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}";
+                    MeshBuilder<VertexPositionNormal, VertexEmpty, VertexEmpty> meshBuilder = new MeshBuilder<VertexPositionNormal, VertexEmpty, VertexEmpty>(meshName);
+                    PrimitiveBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexEmpty> meshPrim = meshBuilder.UsePrimitive((MXMD.Version == Int32.MaxValue ? new MaterialBuilder("NO_MATERIALS") : glTFMaterials[desc.MaterialID]));
 
                     for (int k = 0; k < faceTbl.VertCount; k += 3)
                     {
@@ -1369,23 +1442,41 @@ namespace XBC2ModelDecomp
                         Vector3 norm1 = new Vector3(vertTbl.Normals[faceTbl.Vertices[k + 1]].X, vertTbl.Normals[faceTbl.Vertices[k + 1]].Y, vertTbl.Normals[faceTbl.Vertices[k + 1]].Z);
                         Vector3 norm2 = new Vector3(vertTbl.Normals[faceTbl.Vertices[k + 2]].X, vertTbl.Normals[faceTbl.Vertices[k + 2]].Y, vertTbl.Normals[faceTbl.Vertices[k + 2]].Z);
 
-                        meshPrim.AddTriangle(new GLTFVert(new VertexPositionNormal(vert0, norm0)), new GLTFVert(new VertexPositionNormal(vert1, norm1)), new GLTFVert(new VertexPositionNormal(vert2, norm2)));
+                        VertexPositionNormal tri0 = new VertexPositionNormal(vert0, norm0);
+                        VertexPositionNormal tri1 = new VertexPositionNormal(vert1, norm1);
+                        VertexPositionNormal tri2 = new VertexPositionNormal(vert2, norm2);
+
+                        meshPrim.AddTriangle(new GLTFVert(tri0), new GLTFVert(tri1), new GLTFVert(tri2));
                     }
 
-                    meshBuilders[j] = meshBuilder;
+                    meshBuilders.Add(meshBuilder);
+
+                    if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0 && App.PropPositions)
+                        meshBuildersMatrices.Add(MapInfo.PropPositions[i].Matrix);
+                    else
+                        meshBuildersMatrices.Add(Matrix4x4.Identity);
                 }
             }
 
-            ModelRoot model = ModelRoot.CreateModel();
-            IReadOnlyList<Mesh> meshes = model.CreateMeshes(meshBuilders);
-            Scene scene = model.UseScene("default");
-            Node node = scene.CreateNode(App.CurFileNameNoExt);
+            string filename = App.CurFileNameNoExt;
+            if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
+                filename += $"_mesh{MapInfo.MeshFileLookup.Min()}-{MapInfo.MeshFileLookup.Max()}";
+            else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
+                filename += $"_props_mesh{MapInfo.PropFileLookup.Min()}-{MapInfo.PropFileLookup.Max()}";
 
-            foreach (Mesh m in meshes)
-                node.CreateNode().WithMesh(m);
+            ModelRoot model = ModelRoot.CreateModel();
+            IReadOnlyList<Mesh> meshes = model.CreateMeshes(meshBuilders.ToArray());
+            Scene scene = model.UseScene("default");
+            Node node = scene.CreateNode(filename);
+
+            for (int i = 0; i < meshes.Count; i++)
+            {
+                Node newMesh = node.CreateNode().WithMesh(meshes[i]);
+                newMesh.LocalMatrix = meshBuildersMatrices[i];
+            }
 
             App.PushLog("Writing .glb file...");
-            model.SaveGLB($@"{App.CurOutputPath}\{App.CurFileNameNoExt + ".glb"}");
+            model.SaveGLB($@"{App.CurOutputPath}\{filename}.glb");
         }
 
         public void ReadTextures(Structs.MSRD MSRD, string texturesFolderPath, List<Structs.LBIM> LBIMs = null)
