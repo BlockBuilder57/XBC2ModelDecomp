@@ -14,16 +14,32 @@ namespace XBC2ModelDecomp
 
         public MapTools()
         {
-            App.PushLog("Extracting large maps can take a decent amount of memory as the program decompresses them.");
+            App.PushLog("Extracting large maps can take a decent amount of memory as the program decompresses/handles data.");
             if (App.ExportTextures)
                 App.PushLog("In addition, exporting textures can sometimes take even more memory (1-3GB), especially for larger maps.");
             if (App.ExportFormat == Structs.ExportFormat.XNALara)
                 App.PushLog("While XNALara *works*, glTF retains object position, rotation, and scale; it is much reccomended to switch the output type to glTF for maps.");
 
+            FileStream fsWINVHE = new FileStream(App.CurFilePathAndName + ".winvhe", FileMode.Open, FileAccess.Read);
+            BinaryReader brWINVHE = new BinaryReader(fsWINVHE);
+
+            Structs.NVMS NVMS = ft.ReadNVMS(fsWINVHE, brWINVHE);
+
+            FileStream fsWINVDA = new FileStream(App.CurFilePathAndName + ".winvda", FileMode.Open, FileAccess.Read);
+            BinaryReader brWINVDA = new BinaryReader(fsWINVDA);
+
+            Structs.NVDA NVDA = new Structs.NVDA { Version = brWINVHE.ReadInt32() };
+
+            NVDA.XBC1s = new Structs.XBC1[NVMS.NVDATableCount];
+            for (int i = 0; i < NVMS.NVDATableCount; i++)
+                NVDA.XBC1s[i] = ft.ReadXBC1(fsWINVDA, brWINVDA, NVMS.NVDAPointers[i].XBC1Offset);
+            if (App.ExportFormat == Structs.ExportFormat.RawFiles)
+                DumpXBC1s(fsWINVDA, NVDA.XBC1s);
+
             List<int> magicOccurences = new List<int>();
 
-            FileStream fileStream = new FileStream(App.CurFilePathAndName + ".wismda", FileMode.Open, FileAccess.Read);
-            BinaryReader binaryReader = new BinaryReader(fileStream);
+            FileStream fsWISMDA = new FileStream(App.CurFilePathAndName + ".wismda", FileMode.Open, FileAccess.Read);
+            BinaryReader brWISMDA = new BinaryReader(fsWISMDA);
 
             //this thing can be replaced with data in the wismhd, but I can't figure out a consistent way to get the data
             //for ma01a it's at 0x340
@@ -48,41 +64,20 @@ namespace XBC2ModelDecomp
             ByteBuffer = new byte[0];
 
             if (magicOccurences.Count > 0)
-            {
                 if (!Directory.Exists(App.CurOutputPath))
                     Directory.CreateDirectory(App.CurOutputPath);
-            }
 
             Structs.WISMDA WISMDA = new Structs.WISMDA
             {
-                Data = fileStream,
+                Data = fsWISMDA,
                 Files = new Structs.XBC1[magicOccurences.Count]
             };
-
-            List<string> filenames = new List<string>();
-
-            if (App.ExportFormat == Structs.ExportFormat.RawFiles)
-                App.PushLog($"Saving {magicOccurences.Count} file(s) to disk...");
+            
             for (int i = 0; i < magicOccurences.Count; i++)
-            {
-                WISMDA.Files[i] = ft.ReadXBC1(fileStream, binaryReader, magicOccurences[i]);
+                WISMDA.Files[i] = ft.ReadXBC1(fsWISMDA, brWISMDA, magicOccurences[i]);
+            if (App.ExportFormat == Structs.ExportFormat.RawFiles)
+                DumpXBC1s(WISMDA.Data, WISMDA.Files);
 
-                if (App.ExportFormat == Structs.ExportFormat.RawFiles)
-                {
-                    using (MemoryStream XBC1Stream = FormatTools.ReadZlib(fileStream, WISMDA.Files[i].OffsetInFile + 0x30, WISMDA.Files[i].FileSize, WISMDA.Files[i].CompressedSize))
-                    {
-                        string fileName = WISMDA.Files[i].Name.Split('/').Last();
-                        int dupeCount = filenames.Where(x => x == WISMDA.Files[i].Name).Count();
-                        string saveName = $"{WISMDA.Files[i].Name}{(string.IsNullOrWhiteSpace(fileName) ? "NOFILENAME" : "")}{(dupeCount > 0 ? $"-{dupeCount}" : "")}";
-
-                        ft.SaveStreamToFile(XBC1Stream, saveName, App.CurOutputPath + @"\RawFiles\");
-                        if (App.ShowInfo)
-                            App.PushLog($"Saved {saveName} to disk...");
-                        filenames.Add(WISMDA.Files[i].Name);
-                    }
-
-                }
-            }
             App.PushLog("Finished reading .wismda...");
 
             if (App.ExportFormat != Structs.ExportFormat.RawFiles)
@@ -152,26 +147,29 @@ namespace XBC2ModelDecomp
             Structs.XBC1[] MapMeshDatas = WISMDA.FilesBySearch("seamwork/inst/mdl");
             Structs.XBC1[] MapPosDatas = WISMDA.FilesBySearch("seamwork/inst/pos");
             Structs.Mesh[] MapMeshes = new Structs.Mesh[MapMeshDatas.Length];
-            Structs.MXMD[] MapMXMDs = new Structs.MXMD[MapInfoDatas.Length];
+            List<Structs.MXMD> MapMXMDs = new List<Structs.MXMD>();
             Structs.SeamworkPropPosition[] MapPositions = new Structs.SeamworkPropPosition[MapPosDatas.Length];
             Structs.MapInfo[] MapInfos = new Structs.MapInfo[MapInfoDatas.Length];
+            Dictionary<Structs.MXMD, Structs.MapInfo> MXMDToMapInfo = new Dictionary<Structs.MXMD, Structs.MapInfo>();
 
+            int MapPositionsIndex = 0;
             for (int i = 0; i < MapPosDatas.Length; i++)
-            {
                 MapPositions[i] = ft.ReadPropPositions(MapPosDatas[i].Data, new BinaryReader(MapPosDatas[i].Data));
-            }
 
             for (int i = 0; i < MapInfoDatas.Length; i++)
             {
                 MapInfos[i] = ft.ReadMapInfo(MapInfoDatas[i].Data, new BinaryReader(MapInfoDatas[i].Data), true);
 
                 for (int j = 0; j < MapMeshDatas.Length; j++)
-                    MapMeshes[j] = ft.ReadMesh(MapMeshDatas[j].Data, new BinaryReader(MapMeshDatas[j].Data));
+                    if (MapMeshes[j].VertexTableOffset == 0)
+                        MapMeshes[j] = ft.ReadMesh(MapMeshDatas[j].Data, new BinaryReader(MapMeshDatas[j].Data));
 
-                //figure out how to implement this
-                /*Structs.SeamworkPropPosition ExternalPropPosition = new Structs.SeamworkPropPosition();
-                if (MapPositions.Any(x => x.MapInfoParent == i))
-                    ExternalPropPosition = MapPositions.Where(x => x.MapInfoParent == i).First();*/
+                if (MapInfos[i].PropPosTableCount == 1 && MapInfos[i].PropPositions[0].PropID != 0)
+                {
+                    MapInfos[i].PropPositions.AddRange(MapPositions[MapPositionsIndex].Positions);
+                    MapInfos[i].PropPosTableCount = MapInfos[i].PropPositions.Count;
+                    MapPositionsIndex++;
+                }
 
                 //base things off prop position table
                 //the table has the prop ids I need
@@ -182,32 +180,40 @@ namespace XBC2ModelDecomp
                 //loop through each prop position and build the MXMD based off those + artificial prop table
                 //keep in mind structs are just memory values so I can duplicate things easily
 
-                MapMXMDs[i] = new Structs.MXMD { Version = 0xFF };
-                MapMXMDs[i].Materials = MapInfos[i].Materials;
-                MapMXMDs[i].ModelStruct.MeshesCount = MapInfos[i].PropPosTableCount;
-                MapMXMDs[i].ModelStruct.Meshes = new Structs.MXMDMeshes[MapInfos[i].PropPosTableCount];
-
-                Dictionary<int, int> DictIDToIndex = new Dictionary<int, int>();
+                Dictionary<int, int> UniqueIDIndex = new Dictionary<int, int>();
 
                 for (int j = 0; j < MapInfos[i].PropIDs.Count; j++)
-                    if (!DictIDToIndex.ContainsKey(MapInfos[i].PropIDs[j]))
-                        DictIDToIndex.Add(MapInfos[i].PropIDs[j], j);
+                    if (!UniqueIDIndex.ContainsKey(MapInfos[i].PropIDs[j]))
+                        UniqueIDIndex.Add(MapInfos[i].PropIDs[j], j);
 
-                Structs.MapInfoMeshTable[] MeshTables = new Structs.MapInfoMeshTable[DictIDToIndex.Count];
-                int[] MeshLookup = new int[DictIDToIndex.Count];
-                for (int j = 0; j < DictIDToIndex.Count; j++)
+                Structs.MapInfoMeshTable[] MeshTables = new Structs.MapInfoMeshTable[UniqueIDIndex.Count];
+                int[] MeshLookup = new int[UniqueIDIndex.Count];
+                for (int j = 0; j < UniqueIDIndex.Count; j++)
                 {
-                    MeshTables[j] = MapInfos[i].MeshTables[DictIDToIndex.Values.ElementAt(j)];
-                    MeshLookup[j] = MapInfos[i].PropFileLookup[DictIDToIndex.Values.ElementAt(j)];
+                    MeshTables[j] = MapInfos[i].MeshTables[UniqueIDIndex.Values.ElementAt(j)];
+                    MeshLookup[j] = MapInfos[i].PropFileLookup[UniqueIDIndex.Values.ElementAt(j)];
                 }
                 MapInfos[i].PropFileLookup = MeshLookup;
 
-                for (int j = 0; j < MapInfos[i].PropPosTableCount; j++)
+                for (int j = 0; j < (MapInfos[i].PropPosTableCount / App.PropSplitCount) + 1; j++)
                 {
-                    Structs.MapInfoPropPosition PropPosition = MapInfos[i].PropPositions[j];
+                    int MeshCount = j + 1 == (MapInfos[i].PropPosTableCount / App.PropSplitCount) + 1 ? MapInfos[i].PropPosTableCount % App.PropSplitCount : App.PropSplitCount;
+                    Structs.MXMD FakeMXMD = new Structs.MXMD { Version = 0xFF };
+                    FakeMXMD.Materials = MapInfos[i].Materials;
+                    FakeMXMD.ModelStruct.MeshesCount = MeshCount;
+                    FakeMXMD.ModelStruct.Meshes = new Structs.MXMDMeshes[MeshCount];
 
-                    MapMXMDs[i].ModelStruct.Meshes[j].TableCount = MeshTables[PropPosition.PropID].MeshCount;
-                    MapMXMDs[i].ModelStruct.Meshes[j].Descriptors = MeshTables[PropPosition.PropID].Descriptors;
+                    for (int k = 0; k < MeshCount; k++)
+                    {
+                        Structs.MapInfoPropPosition PropPosition = MapInfos[i].PropPositions[k + (j * App.PropSplitCount)];
+
+                        FakeMXMD.ModelStruct.Meshes[k].Unknown1 = k + (j * App.PropSplitCount);
+                        FakeMXMD.ModelStruct.Meshes[k].TableCount = MeshTables[PropPosition.PropID].MeshCount;
+                        FakeMXMD.ModelStruct.Meshes[k].Descriptors = MeshTables[PropPosition.PropID].Descriptors;
+                    }
+
+                    MapMXMDs.Add(FakeMXMD);
+                    MXMDToMapInfo.Add(FakeMXMD, MapInfos[i]);
                 }
             }
 
@@ -215,15 +221,15 @@ namespace XBC2ModelDecomp
                 foreach (Structs.MapInfo map in MapInfos)
                     App.PushLog("PropInfo:" + Structs.ReflectToString(map, 1, 180));
 
-            for (int i = 0; i < MapInfos.Length; i++)
+            for (int i = 0; i < MXMDToMapInfo.Count; i++)
             {
                 switch (App.ExportFormat)
                 {
                     case Structs.ExportFormat.XNALara:
-                        ft.ModelToASCII(MapMeshes, MapMXMDs[i], new Structs.SKEL { Unknown1 = Int32.MaxValue }, MapInfos[i]);
+                        ft.ModelToASCII(MapMeshes, MXMDToMapInfo.Keys.ElementAt(i), new Structs.SKEL { Unknown1 = Int32.MaxValue }, MXMDToMapInfo.Values.ElementAt(i), $"props{i}x{MXMDToMapInfo.Keys.ElementAt(i).ModelStruct.MeshesCount}");
                         break;
                     case Structs.ExportFormat.glTF:
-                        ft.ModelToGLTF(MapMeshes, MapMXMDs[i], new Structs.SKEL { Unknown1 = Int32.MaxValue }, MapInfos[i]);
+                        ft.ModelToGLTF(MapMeshes, MXMDToMapInfo.Keys.ElementAt(i), new Structs.SKEL { Unknown1 = Int32.MaxValue }, MXMDToMapInfo.Values.ElementAt(i), $"props{i}x{MXMDToMapInfo.Keys.ElementAt(i).ModelStruct.MeshesCount}");
                         break;
                 }
             }
@@ -245,6 +251,7 @@ namespace XBC2ModelDecomp
                 if (brTexture.ReadInt32() == 0x4D49424C)
                 {
                     Structs.LBIM lbim = ft.ReadLBIM(xbc1.Data, brTexture, 0, (int)xbc1.Data.Length);
+                    lbim.Filename = xbc1.Name.Split('/').LastOrDefault();
                     if (lbim.Data != null && lbim.Width > 15 && lbim.Height > 15) //get rid of the tinies
                         TextureLBIMs.Add(lbim);
                 }
@@ -291,6 +298,27 @@ namespace XBC2ModelDecomp
                 lbim.Data.Dispose();
 
             TextureLBIMs.Clear();
+        }
+
+        public void DumpXBC1s(Stream sData, Structs.XBC1[] XBC1s)
+        {
+            List<string> filenames = new List<string>();
+
+            App.PushLog($"Saving {XBC1s.Length} file(s) to disk...");
+            for (int i = 0; i < XBC1s.Length; i++)
+            {
+                using (MemoryStream XBC1Stream = FormatTools.ReadZlib(sData, XBC1s[i].OffsetInFile + 0x30, XBC1s[i].FileSize, XBC1s[i].CompressedSize))
+                {
+                    string fileName = XBC1s[i].Name.Split('/').Last();
+                    int dupeCount = filenames.Where(x => x == XBC1s[i].Name).Count();
+                    string saveName = $"{XBC1s[i].Name}{(string.IsNullOrWhiteSpace(fileName) ? "NOFILENAME" : "")}{(dupeCount > 0 ? $"-{dupeCount}" : "")}";
+
+                    ft.SaveStreamToFile(XBC1Stream, saveName, App.CurOutputPath + @"\RawFiles\");
+                    if (App.ShowInfo)
+                        App.PushLog($"Saved {saveName} to disk...");
+                    filenames.Add(XBC1s[i].Name);
+                }
+            }
         }
     }
 }

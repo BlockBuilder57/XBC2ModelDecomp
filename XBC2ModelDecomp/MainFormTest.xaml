@@ -38,15 +38,18 @@
                     <CheckBox x:Name="EXcbxFlexes" Content="Save facial flexes to model file" ToolTip="Facial flexes will be saved to the model file. This makes the file quite large in size!" HorizontalAlignment="Left" Margin="10,15,0,0" Grid.Row="2" VerticalAlignment="Top"/>
                     <CheckBox x:Name="EXcbxPropPositions" Content="Save prop positions" ToolTip="The positions of props will be saved to the file. XNALara has no concept of object location, so you cannot move it back to the origin." IsChecked="True" HorizontalAlignment="Left" Margin="195,15,0,0" Grid.Row="2" VerticalAlignment="Top"/>
 
-                    <Label Content="Output Format:" Grid.Column="0" Grid.Row="3" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Top" Height="15" Width="85" Padding="0"/>
-                    <ComboBox x:Name="EXdropFormat" Grid.Column="0" Grid.Row="3" Margin="95,0,0,0" Width="100" Padding="2,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" SelectedIndex="2">
+                    <Label Content="Output Format:" Grid.Column="0" Grid.Row="2" HorizontalAlignment="Left" Margin="10,30,0,0" VerticalAlignment="Top" Height="15" Width="85" Padding="0"/>
+                    <ComboBox x:Name="EXdropFormat" Grid.Column="0" Grid.Row="3" Margin="10,0,0,0" Width="100" Padding="2,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" SelectedIndex="2">
                         <ComboBoxItem Content="None"/>
                         <ComboBoxItem Content="Raw Files"/>
                         <ComboBoxItem Content="XNALara"/>
                         <ComboBoxItem Content="glTF (no bones)"/>
                     </ComboBox>
-                    <Label Content="Level of Detail:" Grid.Column="0" Grid.Row="3" HorizontalAlignment="Left" Margin="272,0,0,0" VerticalAlignment="Top" Height="15" Width="78" Padding="0"/>
-                    <Slider x:Name="EXsldLOD" Grid.Column="0" Grid.Row="3" Margin="350,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Maximum="3" Minimum="-1" SmallChange="1" Value="0" Width="100" TickPlacement="BottomRight" Height="30" AutoToolTipPlacement="TopLeft" ValueChanged="EXsldLOD_ValueChanged"/>
+                    <Label Content="Level of Detail:" Grid.Column="0" Grid.Row="2" HorizontalAlignment="Left" Margin="120,30,0,0" VerticalAlignment="Top" Height="15" Width="78" Padding="0"/>
+                    <Slider x:Name="EXsldLOD" Grid.Column="0" Grid.Row="3" Margin="116,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Maximum="3" Minimum="-1" SmallChange="1" Value="0" Width="100" TickPlacement="BottomRight" Height="30" AutoToolTipPlacement="TopLeft" IsSnapToTickEnabled="True"/>
+
+                    <Label Content="Prop Split Size:" Grid.Column="0" Grid.Row="2" HorizontalAlignment="Left" Margin="220,30,0,0" VerticalAlignment="Top" Height="15" Width="91" Padding="0"/>
+                    <Slider x:Name="EXsldPropSplit" Grid.Column="0" Grid.Row="3" Margin="216,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Maximum="10000" Minimum="500" SmallChange="500" Value="1000" Width="234" TickPlacement="BottomRight" Height="30" AutoToolTipPlacement="TopLeft" IsSnapToTickEnabled="True" TickFrequency="500"/>
 
                     <Button x:Name="EXbtnExtract" Content="Extract" Grid.Column="1" Grid.Row="2" HorizontalAlignment="Left" Margin="0,6,0,0" VerticalAlignment="Top" Width="60" Height="20" Click="ExtractFile" IsEnabled="False"/>
                     <CheckBox x:Name="EXcbxShowInfo" Content="Info" ToolTip="Each struct of the model will have its data outputted to the console." HorizontalAlignment="Left" Margin="0,30,0,0" Grid.Column="1" Grid.Row="2" VerticalAlignment="Top"/>

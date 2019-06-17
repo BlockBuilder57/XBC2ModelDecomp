@@ -1124,13 +1124,12 @@ namespace XBC2ModelDecomp
 
                 if (map.PropPosTableOffset != 0)
                 {
-                    map.PropPositions = new Structs.MapInfoPropPosition[map.PropPosTableCount];
+                    map.PropPositions = new List<Structs.MapInfoPropPosition>();
                     sMap.Seek(map.MiscPropertiesTable + map.PropPosTableOffset, SeekOrigin.Begin);
                     for (int i = 0; i < map.PropPosTableCount; i++)
                     {
-                        map.PropPositions[i] = new Structs.MapInfoPropPosition
+                        Structs.MapInfoPropPosition PropPos = new Structs.MapInfoPropPosition
                         {
-                            //where do rotations come from?
                             Matrix = new Matrix4x4(brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle(), brMap.ReadSingle()),
 
                             Unknown1 = brMap.ReadBytes(0x1C),
@@ -1139,8 +1138,9 @@ namespace XBC2ModelDecomp
 
                             Unknown2 = brMap.ReadBytes(0x10)
                         };
-                        map.PropPositions[i].Rotation = new Quaternion(map.PropPositions[i].Matrix.M32, map.PropPositions[i].Matrix.M13, -map.PropPositions[i].Matrix.M21, 1);
-                        map.PropPositions[i].Position = new Vector3(map.PropPositions[i].Matrix.M41, map.PropPositions[i].Matrix.M42, -map.PropPositions[i].Matrix.M43);
+                        PropPos.Rotation = new Quaternion(PropPos.Matrix.M32, PropPos.Matrix.M13, -PropPos.Matrix.M21, 1);
+                        PropPos.Position = new Vector3(PropPos.Matrix.M41, PropPos.Matrix.M42, -PropPos.Matrix.M43);
+                        map.PropPositions.Add(PropPos);
                     }
                 }
             }
@@ -1169,29 +1169,24 @@ namespace XBC2ModelDecomp
                 UnknownTable1Count = brPos.ReadInt32(),
                 UnknownTable1Offset = brPos.ReadInt32(),
 
-                MapInfoParent = brPos.ReadInt32(),
-
-                Unknown3 = brPos.ReadInt32(),
-                Unknown4 = brPos.ReadInt32(),
-                Unknown5 = brPos.ReadInt32(),
+                Unknown3 = brPos.ReadBytes(0x10),
 
                 UnknownTable2Count = brPos.ReadInt32(),
                 UnknownTable2Offset = brPos.ReadInt32(),
                 UnknownTable3Count = brPos.ReadInt32(),
                 UnknownTable3Offset = brPos.ReadInt32(),
 
-                Unknown6 = brPos.ReadBytes(0x28)
+                Unknown7 = brPos.ReadBytes(0x28)
             };
 
             if (pos.TableOffset != 0)
             {
-                pos.Positions = new Structs.MapInfoPropPosition[pos.TableCount];
+                pos.Positions = new List<Structs.MapInfoPropPosition>();
                 sPos.Seek(pos.TableOffset, SeekOrigin.Begin);
                 for (int i = 0; i < pos.TableCount; i++)
                 {
-                    pos.Positions[i] = new Structs.MapInfoPropPosition
+                    Structs.MapInfoPropPosition PropPos = new Structs.MapInfoPropPosition
                     {
-                        //where do rotations come from?
                         Matrix = new Matrix4x4(brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle(), brPos.ReadSingle()),
 
                         Unknown1 = brPos.ReadBytes(0x1C),
@@ -1200,15 +1195,58 @@ namespace XBC2ModelDecomp
 
                         Unknown2 = brPos.ReadBytes(0x10)
                     };
-                    pos.Positions[i].Rotation = new Quaternion(pos.Positions[i].Matrix.M32, pos.Positions[i].Matrix.M13, -pos.Positions[i].Matrix.M21, 1);
-                    pos.Positions[i].Position = new Vector3(pos.Positions[i].Matrix.M41, pos.Positions[i].Matrix.M42, -pos.Positions[i].Matrix.M43);
+                    PropPos.Rotation = new Quaternion(PropPos.Matrix.M32, PropPos.Matrix.M13, -PropPos.Matrix.M21, 1);
+                    PropPos.Position = new Vector3(PropPos.Matrix.M41, PropPos.Matrix.M42, -PropPos.Matrix.M43);
+                    pos.Positions.Add(PropPos);
                 }
             }
 
             return pos;
         }
 
-        public void ModelToASCII(Structs.Mesh[] Meshes, Structs.MXMD MXMD, Structs.SKEL SKEL, Structs.MapInfo MapInfo)
+        public Structs.NVMS ReadNVMS(Stream sNVMS, BinaryReader brNVMS)
+        {
+            App.PushLog("Parsing NVMS...");
+            sNVMS.Seek(0, SeekOrigin.Begin);
+            int MXMDMagic = brNVMS.ReadInt32();
+            if (MXMDMagic != 0x534D564E)
+            {
+                App.PushLog("NVMS is corrupt (or wrong endianness)!");
+                return new Structs.NVMS { Version = Int32.MaxValue };
+            }
+
+            Structs.NVMS NVMS = new Structs.NVMS
+            {
+                Version = brNVMS.ReadInt32(),
+
+                NVDATableOffset = brNVMS.ReadInt32(),
+                NVDATableCount = brNVMS.ReadInt32(),
+
+                Table2Offset = brNVMS.ReadInt32(),
+                Table2Count = brNVMS.ReadInt32(),
+                Table3Offset = brNVMS.ReadInt32(),
+                Table3Count = brNVMS.ReadInt32(),
+
+                Reserved1 = brNVMS.ReadBytes(0x20)
+            };
+
+            sNVMS.Seek(NVMS.NVDATableOffset, SeekOrigin.Begin);
+            NVMS.NVDAPointers = new Structs.NVMSNVDAPointers[NVMS.NVDATableCount];
+            for (int i = 0; i < NVMS.NVDATableCount; i++)
+            {
+                NVMS.NVDAPointers[i] = new Structs.NVMSNVDAPointers
+                {
+                    Unknown1 = brNVMS.ReadInt32(),
+                    XBC1Offset = brNVMS.ReadInt32(),
+                    XBC1Size = brNVMS.ReadInt32(),
+                    SecondFileOffset = brNVMS.ReadInt32()
+                };
+            }
+
+            return NVMS;
+        }
+
+        public void ModelToASCII(Structs.Mesh[] Meshes, Structs.MXMD MXMD, Structs.SKEL SKEL, Structs.MapInfo MapInfo, string FilenameOverride = "")
         {
             Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
             for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
@@ -1217,7 +1255,9 @@ namespace XBC2ModelDecomp
             //begin ascii
             //bone time
             string filename = App.CurFileNameNoExt;
-            if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
+            if (!string.IsNullOrWhiteSpace(FilenameOverride))
+                filename += FilenameOverride;
+            else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
                 filename += $"_mesh{MapInfo.MeshFileLookup.Min()}-{MapInfo.MeshFileLookup.Max()}";
             else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
                 filename += $"_props_mesh{MapInfo.PropFileLookup.Min()}-{MapInfo.PropFileLookup.Max()}";
@@ -1292,7 +1332,7 @@ namespace XBC2ModelDecomp
                         if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
                             meshName = $"mesh{MapInfo.MeshFileLookup[i]}";
                         else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
-                            meshName = $"mesh{MapInfo.PropFileLookup[MapInfo.PropPositions[i].PropID]}";
+                            meshName = $"prop{i}mesh{MapInfo.PropFileLookup[MapInfo.PropPositions[i].PropID]}";
                         meshName += $"desc{descId}_{(desc.LOD != App.LOD ? $"LOD{desc.LOD}_" : "")}";
                         if (lastMeshIdIdentical)
                             meshName += $"flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}";
@@ -1378,7 +1418,7 @@ namespace XBC2ModelDecomp
             asciiWriter.Dispose();
         }
 
-        public void ModelToGLTF(Structs.Mesh[] Meshes, Structs.MXMD MXMD, Structs.SKEL SKEL, Structs.MapInfo MapInfo)
+        public void ModelToGLTF(Structs.Mesh[] Meshes, Structs.MXMD MXMD, Structs.SKEL SKEL, Structs.MapInfo MapInfo, string FilenameOverride = "")
         {
             List<int>[] ValidMeshes = VerifyMeshes(Meshes[0], MXMD);
 
@@ -1401,7 +1441,7 @@ namespace XBC2ModelDecomp
                 if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
                     Mesh = Meshes[MapInfo.MeshFileLookup[i]];
                 else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
-                    Mesh = Meshes[MapInfo.PropFileLookup[MapInfo.PropPositions[i].PropID]];
+                    Mesh = Meshes[MapInfo.PropFileLookup[MapInfo.PropPositions[MXMD.ModelStruct.Meshes[i].Unknown1].PropID]];
 
                 int lastMeshIdIdenticalCount = 0;
                 bool lastMeshIdIdentical = false;
@@ -1426,10 +1466,10 @@ namespace XBC2ModelDecomp
                     if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
                         meshName = $"mesh{MapInfo.MeshFileLookup[i]}";
                     else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
-                        meshName = $"mesh{MapInfo.PropFileLookup[MapInfo.PropPositions[i].PropID]}";
+                        meshName = $"prop{i}mesh{MapInfo.PropFileLookup[MapInfo.PropPositions[i].PropID]}";
                     meshName += $"desc{descId}{(desc.LOD != App.LOD ? $"_LOD{desc.LOD}" : "")}";
                     if (lastMeshIdIdentical)
-                        meshName += $"flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}";
+                        meshName += $"_flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}";
                     MeshBuilder<VertexPositionNormal, VertexEmpty, VertexEmpty> meshBuilder = new MeshBuilder<VertexPositionNormal, VertexEmpty, VertexEmpty>(meshName);
                     PrimitiveBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexEmpty> meshPrim = meshBuilder.UsePrimitive((MXMD.Version == Int32.MaxValue ? new MaterialBuilder("NO_MATERIALS") : glTFMaterials[desc.MaterialID]));
 
@@ -1452,14 +1492,16 @@ namespace XBC2ModelDecomp
                     meshBuilders.Add(meshBuilder);
 
                     if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0 && App.PropPositions)
-                        meshBuildersMatrices.Add(MapInfo.PropPositions[i].Matrix);
+                        meshBuildersMatrices.Add(MapInfo.PropPositions[MXMD.ModelStruct.Meshes[i].Unknown1].Matrix);
                     else
                         meshBuildersMatrices.Add(Matrix4x4.Identity);
                 }
             }
 
             string filename = App.CurFileNameNoExt;
-            if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
+            if (!string.IsNullOrWhiteSpace(FilenameOverride))
+                filename += $"_{FilenameOverride}";
+            else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
                 filename += $"_mesh{MapInfo.MeshFileLookup.Min()}-{MapInfo.MeshFileLookup.Max()}";
             else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
                 filename += $"_props_mesh{MapInfo.PropFileLookup.Min()}-{MapInfo.PropFileLookup.Max()}";
@@ -1580,8 +1622,10 @@ namespace XBC2ModelDecomp
                     int NameIndex = i < MSRD.TextureInfo.Length ? i : MSRD.TextureIds[i % MSRD.TextureInfo.Length];
                     filename += $"{NameIndex:d2}.{MSRD.TextureNames[NameIndex]}";
                 }
+                else if (!string.IsNullOrWhiteSpace(LBIMs[i].Filename))
+                    filename += $"{i:d2}.{LBIMs[i].Filename}";
                 else
-                    filename += $"file{i}";
+                    filename += $"{i:d2}.UnknownFilename";
 
                 FileStream fsTexture;
                 if (LBIMs[i].Type == 37)

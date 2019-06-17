@@ -102,11 +102,6 @@ namespace XBC2ModelDecomp
             }
         }
 
-        private void EXsldLOD_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            EXsldLOD.Value = (int)EXsldLOD.Value;
-        }
-
         private void ExtractFile(object sender, RoutedEventArgs e)
         {
             if (App.FilePaths == null || App.FilePaths.Length == 0)
@@ -118,6 +113,7 @@ namespace XBC2ModelDecomp
             App.PropPositions = EXcbxPropPositions.IsChecked.Value;
             App.ShowInfo = EXcbxShowInfo.IsChecked.Value;
             App.LOD = (int)EXsldLOD.Value;
+            App.PropSplitCount = (int)EXsldPropSplit.Value;
             App.ExportFormat = (Structs.ExportFormat)EXdropFormat.SelectedIndex;
 
             tabConsole.Focus();

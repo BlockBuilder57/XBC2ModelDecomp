@@ -32,6 +32,7 @@ namespace XBC2ModelDecomp
         public static bool PropPositions;
         public static bool ShowInfo;
         public static int LOD;
+        public static int PropSplitCount;
         public static Structs.ExportFormat ExportFormat = Structs.ExportFormat.XNALara;
 
         public delegate void Log(object logMessage);

@@ -149,6 +149,7 @@ namespace XBC2ModelDecomp
         public struct LBIM //its reverse?
         {
             public MSRDDataItem DataItem; //not in struct
+            public string Filename; //not in struct
 
             public MemoryStream Data;
 
@@ -687,7 +688,7 @@ namespace XBC2ModelDecomp
         //winvhe
         public struct NVMS
         {
-            public int Unknown1; //version?
+            public int Version;
 
             public int NVDATableOffset;
             public int NVDATableCount;
@@ -699,15 +700,23 @@ namespace XBC2ModelDecomp
 
             public byte[] Reserved1; //0x20 long
 
-            public NVMSNVDA[] NVDAs;
+            public NVMSNVDAPointers[] NVDAPointers;
         }
 
-        public struct NVMSNVDA
+        //winvda
+        public struct NVMSNVDAPointers
         {
             public int Unknown1;
-            public int NVDAOffset;
-            public int Unknown2;
+            public int XBC1Offset;
+            public int XBC1Size;
             public int SecondFileOffset;
+        }
+
+        public struct NVDA
+        {
+            public int Version;
+
+            public XBC1[] XBC1s;
         }
 
         public struct MapInfo
@@ -757,7 +766,7 @@ namespace XBC2ModelDecomp
             public int PropPosTableCount;
             public int PropPosTableOffset;
 
-            public MapInfoPropPosition[] PropPositions;
+            public List<MapInfoPropPosition> PropPositions;
 
             public override string ToString()
             {
@@ -802,20 +811,16 @@ namespace XBC2ModelDecomp
             public int UnknownTable1Count;
             public int UnknownTable1Offset;
 
-            public int MapInfoParent;
-
-            public int Unknown3;
-            public int Unknown4;
-            public int Unknown5;
+            public byte[] Unknown3; //0x10 long
 
             public int UnknownTable2Count;
             public int UnknownTable2Offset;
             public int UnknownTable3Count;
             public int UnknownTable3Offset;
 
-            public byte[] Unknown6; //0x28 long
+            public byte[] Unknown7; //0x28 long
 
-            public MapInfoPropPosition[] Positions;
+            public List<MapInfoPropPosition> Positions;
         }
 
         public struct MapInfoPropPosition
