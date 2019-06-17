@@ -305,8 +305,7 @@ namespace XBC2ModelDecomp
             //these are right after the actual vertex struct, but not in this order
             public Vector3[] Vertices;
             public int[] Weights;
-            public float[,] UVPosX;
-            public float[,] UVPosY;
+            public Vector2[,] UVPos;
             public int UVLayerCount;
             public Color[] VertexColor;
             public Quaternion[] Normals;

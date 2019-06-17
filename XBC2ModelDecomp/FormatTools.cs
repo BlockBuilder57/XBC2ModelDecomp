@@ -15,7 +15,7 @@ using SharpGLTF.Materials;
 
 namespace XBC2ModelDecomp
 {
-    using GLTFVert = VertexBuilder<VertexPositionNormal, VertexColor1, VertexEmpty>;
+    using GLTFVert = VertexBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints16x4>;
 
     public class FormatTools
     {
@@ -50,6 +50,11 @@ namespace XBC2ModelDecomp
             vector.Y = FinalY;
             vector.Z = FinalZ;
             return vector;
+        }
+
+        public static Vector4 ColorToVector4(Color col)
+        {
+            return new Vector4(col.R / 255f, col.G / 255f, col.B / 255f, col.A / 255f);
         }
 
         public void SaveStreamToFile(Stream stream, string fileName, string filePath)
@@ -897,8 +902,7 @@ namespace XBC2ModelDecomp
 
                 Mesh.VertexTables[i].Vertices = new Vector3[Mesh.VertexTables[i].DataCount];
                 Mesh.VertexTables[i].Weights = new int[Mesh.VertexTables[i].DataCount];
-                Mesh.VertexTables[i].UVPosX = new float[Mesh.VertexTables[i].DataCount, 4];
-                Mesh.VertexTables[i].UVPosY = new float[Mesh.VertexTables[i].DataCount, 4];
+                Mesh.VertexTables[i].UVPos = new Vector2[Mesh.VertexTables[i].DataCount, 4];
                 Mesh.VertexTables[i].VertexColor = new Color[Mesh.VertexTables[i].DataCount];
                 Mesh.VertexTables[i].Normals = new Quaternion[Mesh.VertexTables[i].DataCount];
                 Mesh.VertexTables[i].WeightValues = new float[Mesh.VertexTables[i].DataCount, 4];
@@ -919,8 +923,7 @@ namespace XBC2ModelDecomp
                             case 5:
                             case 6:
                             case 7:
-                                Mesh.VertexTables[i].UVPosX[j, desc.Type - 5] = brMesh.ReadSingle();
-                                Mesh.VertexTables[i].UVPosY[j, desc.Type - 5] = brMesh.ReadSingle();
+                                Mesh.VertexTables[i].UVPos[j, desc.Type - 5] = new Vector2(brMesh.ReadSingle(), brMesh.ReadSingle());
                                 if (desc.Type - 4 > Mesh.VertexTables[i].UVLayerCount)
                                     Mesh.VertexTables[i].UVLayerCount = desc.Type - 4;
                                 break;
@@ -1355,7 +1358,7 @@ namespace XBC2ModelDecomp
                             if (lastMeshIdIdentical)
                                 vertexPos += Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + lastMeshIdIdenticalCount + 1].Vertices[vrtIndex];
                             if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0 && App.PropPositions)
-                                vertexPos += /*= RotateVector3(vertexPos, MapInfo.PropPositions[i].Rotation) +*/ MapInfo.PropPositions[i].Position;
+                                vertexPos = Vector3.Transform(vertexPos, MapInfo.PropPositions[i].Matrix);
                             asciiWriter.Write($"{vertexPos.X:F6} ");
                             asciiWriter.Write($"{vertexPos.Y:F6} ");
                             asciiWriter.Write($"{vertexPos.Z:F6}");
@@ -1379,7 +1382,7 @@ namespace XBC2ModelDecomp
 
                             //uv coords
                             for (int curUVLayer = 0; curUVLayer < vertTbl.UVLayerCount; curUVLayer++)
-                                asciiWriter.WriteLine(vertTbl.UVPosX[vrtIndex, curUVLayer].ToString("F6") + " " + vertTbl.UVPosY[vrtIndex, curUVLayer].ToString("F6"));
+                                asciiWriter.WriteLine(vertTbl.UVPos[vrtIndex, curUVLayer].X.ToString("F6") + " " + vertTbl.UVPos[vrtIndex, curUVLayer].Y.ToString("F6"));
 
                             if (SKEL.Unknown1 != Int32.MaxValue)
                             {
@@ -1422,7 +1425,7 @@ namespace XBC2ModelDecomp
         {
             List<int>[] ValidMeshes = VerifyMeshes(Meshes[0], MXMD);
 
-            List<MeshBuilder<VertexPositionNormal, VertexEmpty, VertexEmpty>> meshBuilders = new List<MeshBuilder<VertexPositionNormal, VertexEmpty, VertexEmpty>>();
+            List<MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints16x4>> meshBuilders = new List<MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints16x4>>();
             List<MaterialBuilder> glTFMaterials = new List<MaterialBuilder>();
             List<Matrix4x4> meshBuildersMatrices = new List<Matrix4x4>();
 
@@ -1470,8 +1473,8 @@ namespace XBC2ModelDecomp
                     meshName += $"desc{descId}{(desc.LOD != App.LOD ? $"_LOD{desc.LOD}" : "")}";
                     if (lastMeshIdIdentical)
                         meshName += $"_flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}";
-                    MeshBuilder<VertexPositionNormal, VertexEmpty, VertexEmpty> meshBuilder = new MeshBuilder<VertexPositionNormal, VertexEmpty, VertexEmpty>(meshName);
-                    PrimitiveBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexEmpty> meshPrim = meshBuilder.UsePrimitive((MXMD.Version == Int32.MaxValue ? new MaterialBuilder("NO_MATERIALS") : glTFMaterials[desc.MaterialID]));
+                    MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints16x4> meshBuilder = new MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints16x4>(meshName);
+                    PrimitiveBuilder<MaterialBuilder, VertexPositionNormal, VertexColor1Texture2, VertexJoints16x4> meshPrim = meshBuilder.UsePrimitive((MXMD.Version == Int32.MaxValue ? new MaterialBuilder("NO_MATERIALS") : glTFMaterials[desc.MaterialID]));
 
                     for (int k = 0; k < faceTbl.VertCount; k += 3)
                     {
@@ -1486,7 +1489,31 @@ namespace XBC2ModelDecomp
                         VertexPositionNormal tri1 = new VertexPositionNormal(vert1, norm1);
                         VertexPositionNormal tri2 = new VertexPositionNormal(vert2, norm2);
 
-                        meshPrim.AddTriangle(new GLTFVert(tri0), new GLTFVert(tri1), new GLTFVert(tri2));
+                        int UVs = vertTbl.UVLayerCount;
+                        VertexColor1Texture2 uv0 = new VertexColor1Texture2(ColorToVector4(vertTbl.VertexColor[faceTbl.Vertices[k]]), UVs >= 1 ? vertTbl.UVPos[faceTbl.Vertices[k], 0] : Vector2.Zero, UVs >= 2 ? vertTbl.UVPos[faceTbl.Vertices[k], 1] : Vector2.Zero);
+                        VertexColor1Texture2 uv1 = new VertexColor1Texture2(ColorToVector4(vertTbl.VertexColor[faceTbl.Vertices[k + 1]]), UVs >= 1 ? vertTbl.UVPos[faceTbl.Vertices[k + 1], 0] : Vector2.Zero, UVs >= 2 ? vertTbl.UVPos[faceTbl.Vertices[k + 1], 1] : Vector2.Zero);
+                        VertexColor1Texture2 uv2 = new VertexColor1Texture2(ColorToVector4(vertTbl.VertexColor[faceTbl.Vertices[k + 2]]), UVs >= 1 ? vertTbl.UVPos[faceTbl.Vertices[k + 2], 0] : Vector2.Zero, UVs >= 2 ? vertTbl.UVPos[faceTbl.Vertices[k + 2], 1] : Vector2.Zero);
+
+                        /*JointBinding jb00 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k], 0], vertTbl.WeightValues[faceTbl.Vertices[k], 0]);
+                        JointBinding jb01 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k], 0], vertTbl.WeightValues[faceTbl.Vertices[k], 0]);
+                        JointBinding jb02 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k], 0], vertTbl.WeightValues[faceTbl.Vertices[k], 0]);
+                        JointBinding jb03 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k], 0], vertTbl.WeightValues[faceTbl.Vertices[k], 0]);
+                        JointBinding jb10 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 1], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 0]);
+                        JointBinding jb11 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 1], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 0]);
+                        JointBinding jb12 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 1], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 0]);
+                        JointBinding jb13 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 1], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 0]);
+                        JointBinding jb20 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 2], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 0]);
+                        JointBinding jb21 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 2], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 0]);
+                        JointBinding jb22 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 2], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 0]);
+                        JointBinding jb23 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 2], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 0]);
+                        VertexJoints16x4 bone0 = new VertexJoints16x4(jb00, jb01, jb02, jb03);
+                        VertexJoints16x4 bone1 = new VertexJoints16x4(jb10, jb11, jb12, jb13);
+                        VertexJoints16x4 bone2 = new VertexJoints16x4(jb20, jb21, jb22, jb23);
+
+                        if (SKEL.Unknown1 != Int32.MaxValue)
+                            meshPrim.AddTriangle(new GLTFVert(tri0, uv0, bone0), new GLTFVert(tri1, uv1, bone1), new GLTFVert(tri2, uv2, bone2));
+                        else*/
+                            meshPrim.AddTriangle(new GLTFVert(tri0, uv0, new VertexJoints16x4(0)), new GLTFVert(tri1, uv1, new VertexJoints16x4(0)), new GLTFVert(tri2, uv2, new VertexJoints16x4(0)));
                     }
 
                     meshBuilders.Add(meshBuilder);
