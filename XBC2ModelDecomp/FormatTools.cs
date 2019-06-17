@@ -1355,7 +1355,7 @@ namespace XBC2ModelDecomp
                             if (lastMeshIdIdentical)
                                 vertexPos += Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + lastMeshIdIdenticalCount + 1].Vertices[vrtIndex];
                             if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0 && App.PropPositions)
-                                vertexPos = RotateVector3(vertexPos, MapInfo.PropPositions[i].Rotation) + MapInfo.PropPositions[i].Position;
+                                vertexPos += /*= RotateVector3(vertexPos, MapInfo.PropPositions[i].Rotation) +*/ MapInfo.PropPositions[i].Position;
                             asciiWriter.Write($"{vertexPos.X:F6} ");
                             asciiWriter.Write($"{vertexPos.Y:F6} ");
                             asciiWriter.Write($"{vertexPos.Z:F6}");

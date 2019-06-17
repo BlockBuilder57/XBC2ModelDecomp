@@ -14,11 +14,16 @@ namespace XBC2ModelDecomp
 
         public MapTools()
         {
+            bool WasXNALara = false;
             App.PushLog("Extracting large maps can take a decent amount of memory as the program decompresses/handles data.");
             if (App.ExportTextures)
                 App.PushLog("In addition, exporting textures can sometimes take even more memory (1-3GB), especially for larger maps.");
             if (App.ExportFormat == Structs.ExportFormat.XNALara)
-                App.PushLog("While XNALara *works*, glTF retains object position, rotation, and scale; it is much reccomended to switch the output type to glTF for maps.");
+            {
+                WasXNALara = true;
+                App.ExportFormat = Structs.ExportFormat.glTF;
+                App.PushLog("While XNALara *works*, glTF retains object position, rotation, and scale; so the output type has been switched to glTF.");
+            }
 
             FileStream fsWINVHE = new FileStream(App.CurFilePathAndName + ".winvhe", FileMode.Open, FileAccess.Read);
             BinaryReader brWINVHE = new BinaryReader(fsWINVHE);
@@ -90,6 +95,8 @@ namespace XBC2ModelDecomp
             }
 
             App.PushLog("Done!");
+            if (WasXNALara)
+                App.PushLog("Remember, the output type was switched to glTF as it better supports maps.");
         }
 
         public void SaveMapMeshes(Structs.WISMDA WISMDA)
