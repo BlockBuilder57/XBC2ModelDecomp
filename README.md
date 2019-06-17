@@ -2,10 +2,11 @@
 A reformatted fork of a [project created by daemon1](https://forum.xentax.com/viewtopic.php?f=16&t=18087) on the XeNTaX forums. All credit to them and to [PredatorCZ/Lukas Cone](https://lukascone.wordpress.com/2018/05/06/xenoblade-chronicles-import-tool/) for publicizing tools to reverse the game's various model formats. Special thanks to Turk645 as well for working on the map formats and for bouncing ideas back and forth with.
 
 ## Features
-* Dump model meshes, bones, and flexes to XNALara ascii or glTF
-* Dump textures from .wismt
-* Dump animations
-* Dumps raw files from map files
+* Dump models (including bones and flexes) to XNALara ascii or glTF
+* Dump maps (including props) to XNALara ascii or glTF
+* Save specified LOD values for both props and maps
+* Dump all textures from files (including mesh textures/main chunk textures)
+* Dumps raw files and animations for research
 
 ## Running
 Simply run the executable, and pick an input file. An output folder will be created in the path you choose your file(s) in, but you can override this by picking a output folder manually. Each file will have its own folder in the output folder. Then, configure your output settings at the bottom and hit Extract. The file should export to the output path in the format you chose.
