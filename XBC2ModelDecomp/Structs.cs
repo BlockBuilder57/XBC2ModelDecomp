@@ -19,7 +19,7 @@ namespace XBC2ModelDecomp
             glTF
         }
 
-        public static string ReflectToString(object parent, int tabCount = 1, int arrayLimit = 100)
+        public static string ReflectToString(object parent, int tabCount = 1, int arrayLimit = 120)
         {
             string output = "";
 

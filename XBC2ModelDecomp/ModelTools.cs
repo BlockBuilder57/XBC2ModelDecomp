@@ -9,11 +9,11 @@ using zlib;
 
 namespace XBC2ModelDecomp
 {
-    class ModelTools
+    public class ModelTools
     {
-        FormatTools ft = new FormatTools();
+        private FormatTools ft = MainFormTest.FormatTools;
 
-        public ModelTools()
+        public void ExtractModels()
         {
             App.PushLog($"Reading {App.CurFileNameNoExt}...");
 
@@ -48,7 +48,7 @@ namespace XBC2ModelDecomp
                 if (App.ExportFormat != Structs.ExportFormat.None && !Directory.Exists(App.CurOutputPath))
                     Directory.CreateDirectory(App.CurOutputPath);
 
-                if (MSRD.TOC.Length > 1 && App.ExportTextures)
+                if (App.ExportTextures)
                     ft.ReadTextures(MSRD, $@"{App.CurOutputPath}\Textures");
 
                 BinaryReader brCurFile = new BinaryReader(MSRD.TOC[0].Data); //start new file

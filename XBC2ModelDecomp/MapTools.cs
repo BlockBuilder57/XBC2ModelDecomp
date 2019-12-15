@@ -10,31 +10,34 @@ namespace XBC2ModelDecomp
 {
     public class MapTools
     {
-        FormatTools ft = new FormatTools();
+        private FormatTools ft = MainFormTest.FormatTools;
 
-        public MapTools()
+        public void ExtractMaps()
         {
             App.PushLog("Extracting large maps can take a decent amount of memory as the program decompresses/handles data.");
             if (App.ExportTextures)
-                App.PushLog("In addition, exporting textures can sometimes take even more memory (1-3GB), especially for larger maps.");
+                App.PushLog("In addition, exporting textures can sometimes take even more memory (1-5GB), especially for larger maps.");
             if (App.ExportFormat == Structs.ExportFormat.XNALara)
-                App.PushLog("While XNALara *works*, glTF retains object position, rotation, and scale; it is more reccomended to use it for those reasons.");
+                App.PushLog("While XNALara *works*, glTF retains object position, rotation, and scale; it is reccomended to use it for those reasons.");
 
-            FileStream fsWINVHE = new FileStream(App.CurFilePathAndName + ".winvhe", FileMode.Open, FileAccess.Read);
-            BinaryReader brWINVHE = new BinaryReader(fsWINVHE);
+            if (File.Exists(App.CurFilePathAndName + ".winvhe"))
+            {
+                FileStream fsWINVHE = new FileStream(App.CurFilePathAndName + ".winvhe", FileMode.Open, FileAccess.Read);
+                BinaryReader brWINVHE = new BinaryReader(fsWINVHE);
 
-            Structs.NVMS NVMS = ft.ReadNVMS(fsWINVHE, brWINVHE);
+                Structs.NVMS NVMS = ft.ReadNVMS(fsWINVHE, brWINVHE);
 
-            FileStream fsWINVDA = new FileStream(App.CurFilePathAndName + ".winvda", FileMode.Open, FileAccess.Read);
-            BinaryReader brWINVDA = new BinaryReader(fsWINVDA);
+                FileStream fsWINVDA = new FileStream(App.CurFilePathAndName + ".winvda", FileMode.Open, FileAccess.Read);
+                BinaryReader brWINVDA = new BinaryReader(fsWINVDA);
 
-            Structs.NVDA NVDA = new Structs.NVDA { Version = brWINVHE.ReadInt32() };
+                Structs.NVDA NVDA = new Structs.NVDA { Version = brWINVHE.ReadInt32() };
 
-            NVDA.XBC1s = new Structs.XBC1[NVMS.NVDATableCount];
-            for (int i = 0; i < NVMS.NVDATableCount; i++)
-                NVDA.XBC1s[i] = ft.ReadXBC1(fsWINVDA, brWINVDA, NVMS.NVDAPointers[i].XBC1Offset);
-            if (App.ExportFormat == Structs.ExportFormat.RawFiles)
-                DumpXBC1s(fsWINVDA, NVDA.XBC1s);
+                NVDA.XBC1s = new Structs.XBC1[NVMS.NVDATableCount];
+                for (int i = 0; i < NVMS.NVDATableCount; i++)
+                    NVDA.XBC1s[i] = ft.ReadXBC1(fsWINVDA, brWINVDA, NVMS.NVDAPointers[i].XBC1Offset);
+                if (App.ExportFormat == Structs.ExportFormat.RawFiles)
+                    DumpXBC1s(fsWINVDA, NVDA.XBC1s);
+            }
 
             List<int> magicOccurences = new List<int>();
 
@@ -85,8 +88,10 @@ namespace XBC2ModelDecomp
                 if (App.ExportTextures)
                     SaveMapTextures(WISMDA, $@"{App.CurOutputPath}\Textures");
 
-                SaveMapMeshes(WISMDA);
-                SaveMapProps(WISMDA);
+                if (App.ExportMapMesh)
+                    SaveMapMeshes(WISMDA);
+                if (App.ExportMapProps)
+                    SaveMapProps(WISMDA);
             }
 
             App.PushLog("Done!");
@@ -105,11 +110,11 @@ namespace XBC2ModelDecomp
                         MapInfos[i].MeshFileLookup[j] += (short)(MapInfos[i - 1].MeshFileLookup.Max() + 1);
 
                 MapMXMDs[i] = new Structs.MXMD { Version = 0xFF };
+                MapMXMDs[i].Materials = MapInfos[i].Materials;
+                MapMXMDs[i].ModelStruct.MeshesCount = MapInfos[i].MeshTableDataCount;
                 MapMXMDs[i].ModelStruct.Meshes = new Structs.MXMDMeshes[MapInfos[i].MeshTables.Length];
                 for (int j = 0; j < MapInfos[i].MeshTables.Length; j++)
                 {
-                    MapMXMDs[i].Materials = MapInfos[i].Materials;
-                    MapMXMDs[i].ModelStruct.MeshesCount = MapInfos[i].MeshTableDataCount;
                     MapMXMDs[i].ModelStruct.Meshes[j].TableCount = MapInfos[i].MeshTables[j].MeshCount;
                     MapMXMDs[i].ModelStruct.Meshes[j].Descriptors = MapInfos[i].MeshTables[j].Descriptors;
                 }
@@ -242,9 +247,47 @@ namespace XBC2ModelDecomp
             //"seamwork/texture//" contains PBR materials and some base color things, seems to be for props exclusively?
 
             List<Structs.LBIM> TextureLBIMs = new List<Structs.LBIM>();
-            List<Structs.XBC1> CacheAndTecPac = WISMDA.FilesBySearch("cache/").ToList();
-            CacheAndTecPac.AddRange(WISMDA.FilesBySearch("seamwork/tecpac"));
-            foreach (Structs.XBC1 xbc1 in CacheAndTecPac)
+
+            List<Structs.XBC1> MapCache = WISMDA.FilesBySearch($"cache/cache_{App.CurFileNameNoExt}").ToList();
+            List<int> DoubleSize = new List<int>();
+            for (int i = 0; i < MapCache.Count; i++)
+            {
+                BinaryReader brTexture = new BinaryReader(MapCache[i].Data);
+                MapCache[i].Data.Seek(-0x4, SeekOrigin.End);
+                if (brTexture.ReadInt32() == 0x4D49424C)
+                {
+                    Structs.LBIM lbim = ft.ReadLBIM(MapCache[i].Data, brTexture, 0, (int)MapCache[i].Data.Length);
+                    lbim.Filename = MapCache[i].Name.Split('/').LastOrDefault();
+                    if (lbim.Type == 66)
+                        DoubleSize.Add(i);
+                    else if (lbim.Data != null && lbim.Width > 15 && lbim.Height > 15) //get rid of the tinies
+                        TextureLBIMs.Add(lbim);
+                }
+                else
+                {
+                    Structs.LBIM lbim = ft.ReadLBIM(MapCache[DoubleSize.First()].Data, new BinaryReader(MapCache[DoubleSize.First()].Data), 0, (int)MapCache[DoubleSize.First()].Data.Length);
+                    //lbim.Filename = MapCache[i].Name.Split('/').LastOrDefault();
+                    lbim.Filename = $"{MapCache[i].Name.Split('/').LastOrDefault()}-yoda-{i}-{DoubleSize.First()}";
+                    lbim.Data = MapCache[i].Data;
+                    lbim.Width *= 2;
+                    lbim.Height *= 2;
+                    TextureLBIMs.Add(lbim);
+                    DoubleSize.RemoveAt(0);
+                }
+            }
+
+            /*for (int i = 0; i < DoubleSize.Count; i++)
+            {
+                Structs.LBIM lbim = DoubleSize[i];
+                lbim.Data = MapCache[i + (MapCache.Count - DoubleSize.Count)].Data;
+                lbim.Width *= 2;
+                lbim.Height *= 2;
+                TextureLBIMs.Add(lbim);
+            }*/
+
+            /*List<Structs.XBC1> TextureCache = WISMDA.FilesBySearch("cache//texture").ToList();
+            TextureCache.AddRange(WISMDA.FilesBySearch("seamwork/tecpac"));
+            foreach (Structs.XBC1 xbc1 in TextureCache)
             {
                 BinaryReader brTexture = new BinaryReader(xbc1.Data);
                 xbc1.Data.Seek(-0x4, SeekOrigin.End);
@@ -255,7 +298,7 @@ namespace XBC2ModelDecomp
                     if (lbim.Data != null && lbim.Width > 15 && lbim.Height > 15) //get rid of the tinies
                         TextureLBIMs.Add(lbim);
                 }
-            }
+            }*/
 
             ft.ReadTextures(new Structs.MSRD { Version = Int32.MaxValue }, texturesFolderPath + @"\CacheAndTecPac", TextureLBIMs);
             foreach (Structs.LBIM lbim in TextureLBIMs)

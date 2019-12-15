@@ -25,6 +25,11 @@ namespace XBC2ModelDecomp
     /// </summary>
     public partial class MainFormTest : Window
     {
+        public static FormatTools FormatTools = new FormatTools();
+        public static ModelTools ModelTools = new ModelTools();
+        public static MapTools MapTools = new MapTools();
+        public static TextureTools TextureTools = new TextureTools();
+
         public string[] Quotes =
         {
             "Find me on GitHub!",
@@ -47,6 +52,15 @@ namespace XBC2ModelDecomp
             
             txtConsole.Text = Quotes[new Random().Next(0, Quotes.Length)];
 
+            if (FormatTools == null)
+                FormatTools = new FormatTools();
+            if (ModelTools == null)
+                ModelTools = new ModelTools();
+            if (MapTools == null)
+                MapTools = new MapTools();
+            if (TextureTools == null)
+                TextureTools = new TextureTools();
+
             this.Title = $"XBC2ModelDecomp v{Assembly.GetEntryAssembly().GetName().Version.ToString(2)}-{ThisAssembly.Git.Commit}";
         }
 
@@ -67,7 +81,7 @@ namespace XBC2ModelDecomp
 
         private void SelectFile(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog ofd = new OpenFileDialog { Filter = "Model Files (*.wismt)|*.wismt|Map Files (*.wismda)|*.wismda|All files (*.*)|*.*", Multiselect = true };
+            OpenFileDialog ofd = new OpenFileDialog { Filter = "Model Files (*.wismt)|*.wismt|Map Files (*.wismda)|*.wismda|Font Files (*.wifnt)|*.wifnt|All files (*.*)|*.*", Multiselect = true };
             if (ofd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 App.FilePaths = ofd.FileNames;
@@ -110,7 +124,8 @@ namespace XBC2ModelDecomp
             App.ExportFlexes = EXcbxFlexes.IsChecked.Value;
             App.ExportAnims = EXcbxAnims.IsChecked.Value;
             App.ExportOutlines = EXcbxOutlines.IsChecked.Value;
-            App.PropPositions = EXcbxPropPositions.IsChecked.Value;
+            App.ExportMapMesh = EXcbxMapMesh.IsChecked.Value;
+            App.ExportMapProps = EXcbxMapProps.IsChecked.Value;
             App.ShowInfo = EXcbxShowInfo.IsChecked.Value;
             App.LOD = (int)EXsldLOD.Value;
             App.PropSplitCount = (int)EXsldPropSplit.Value;
@@ -132,10 +147,13 @@ namespace XBC2ModelDecomp
                         case ".wiefp":
                         case ".arc":
                         case ".mot":
-                            new ModelTools();
+                            ModelTools.ExtractModels();
                             break;
                         case ".wismda":
-                            new MapTools();
+                            MapTools.ExtractMaps();
+                            break;
+                        case ".wifnt":
+                            TextureTools.ExtractTextures();
                             break;
                     }
                 }

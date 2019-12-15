@@ -10,12 +10,13 @@ using System.Windows.Media;
 using SharpGLTF.Schema2;
 using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
+using SharpGLTF.Transforms;
 using zlib;
 using SharpGLTF.Materials;
 
 namespace XBC2ModelDecomp
 {
-    using GLTFVert = VertexBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints16x4>;
+    using GLTFVert = VertexBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints4>;
 
     public class FormatTools
     {
@@ -28,28 +29,6 @@ namespace XBC2ModelDecomp
                 text += (char)b;
             }
             return text;
-        }
-
-        //stolen from the XNA Framework
-        public static Vector3 RotateVector3(Vector3 value, Quaternion rotation)
-        {
-            Vector3 vector;
-            float num11 = rotation.W * (rotation.X + rotation.X);
-            float num10 = rotation.W * (rotation.Y + rotation.Y);
-            float num9 = rotation.W * (rotation.Z + rotation.Z);
-            float num8 = rotation.X * (rotation.X + rotation.X);
-            float num7 = rotation.X * (rotation.Y + rotation.Y);
-            float num6 = rotation.X * (rotation.Z + rotation.Z);
-            float num5 = rotation.Y * (rotation.Y + rotation.Y);
-            float num4 = rotation.Y * (rotation.Z + rotation.Z);
-            float num3 = rotation.Z * (rotation.Z + rotation.Z);
-            float FinalX = ((value.X * ((1f - num5) - num3)) + (value.Y * (num7 - num9))) + (value.Z * (num6 + num10));
-            float FinalY = ((value.X * (num7 + num9)) + (value.Y * ((1f - num8) - num3))) + (value.Z * (num4 - num11));
-            float FinalZ = ((value.X * (num6 - num10)) + (value.Y * (num4 + num11))) + (value.Z * ((1f - num8) - num5));
-            vector.X = FinalX;
-            vector.Y = FinalY;
-            vector.Z = FinalZ;
-            return vector;
         }
 
         public static Vector4 ColorToVector4(Color col)
@@ -402,6 +381,8 @@ namespace XBC2ModelDecomp
                 Version = brLBIM.ReadInt32()
             };
 
+
+
             if (dataItem.Size != default(Structs.MSRDDataItem).Size)
                 LBIM.DataItem = dataItem;
             sLBIM.Seek(Offset, SeekOrigin.Begin);
@@ -491,6 +472,15 @@ namespace XBC2ModelDecomp
                 {
                     sMSRD.Seek(MSRD.MainOffset + MSRD.TextureCountOffset + MSRD.TextureInfo[i].StringOffset, SeekOrigin.Begin);
                     MSRD.TextureNames[i] = FormatTools.ReadNullTerminatedString(brMSRD);
+                }
+            }
+
+            if (MSRD.TextureIdsOffset == MSRD.TextureCountOffset)
+            {
+                MSRD.TextureIds = new short[MSRD.TextureCount];
+                for (int i = 0; i < MSRD.TextureCount; i++)
+                {
+                    MSRD.TextureIds[i] = brMSRD.ReadInt16();
                 }
             }
 
@@ -1048,6 +1038,8 @@ namespace XBC2ModelDecomp
                 sMap.Seek(map.MeshTableOffset + 0x1C, SeekOrigin.Begin);
                 map.MeshTableDataOffset = brMap.ReadInt32();
                 map.MeshTableDataCount = brMap.ReadInt32();
+                if (!IsProp && map.MeshTableDataCount % 2 == 0)
+                    map.MeshTableDataCount /= 2;
 
                 map.MeshTables = new Structs.MapInfoMeshTable[map.MeshTableDataCount];
                 for (int i = 0; i < map.MeshTableDataCount; i++)
@@ -1357,7 +1349,7 @@ namespace XBC2ModelDecomp
                             Vector3 vertexPos = vertTbl.Vertices[vrtIndex];
                             if (lastMeshIdIdentical)
                                 vertexPos += Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + lastMeshIdIdenticalCount + 1].Vertices[vrtIndex];
-                            if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0 && App.PropPositions)
+                            if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
                                 vertexPos = Vector3.Transform(vertexPos, MapInfo.PropPositions[i].Matrix);
                             asciiWriter.Write($"{vertexPos.X:F6} ");
                             asciiWriter.Write($"{vertexPos.Y:F6} ");
@@ -1425,7 +1417,7 @@ namespace XBC2ModelDecomp
         {
             List<int>[] ValidMeshes = VerifyMeshes(Meshes[0], MXMD);
 
-            List<MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints16x4>> meshBuilders = new List<MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints16x4>>();
+            List<MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints4>> meshBuilders = new List<MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints4>>();
             List<MaterialBuilder> glTFMaterials = new List<MaterialBuilder>();
             List<Matrix4x4> meshBuildersMatrices = new List<Matrix4x4>();
 
@@ -1473,8 +1465,8 @@ namespace XBC2ModelDecomp
                     meshName += $"desc{descId}{(desc.LOD != App.LOD ? $"_LOD{desc.LOD}" : "")}";
                     if (lastMeshIdIdentical)
                         meshName += $"_flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}";
-                    MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints16x4> meshBuilder = new MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints16x4>(meshName);
-                    PrimitiveBuilder<MaterialBuilder, VertexPositionNormal, VertexColor1Texture2, VertexJoints16x4> meshPrim = meshBuilder.UsePrimitive((MXMD.Version == Int32.MaxValue ? new MaterialBuilder("NO_MATERIALS") : glTFMaterials[desc.MaterialID]));
+                    MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints4> meshBuilder = new MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints4>(meshName);
+                    PrimitiveBuilder<MaterialBuilder, VertexPositionNormal, VertexColor1Texture2, VertexJoints4> meshPrim = meshBuilder.UsePrimitive((MXMD.Version == Int32.MaxValue ? new MaterialBuilder("NO_MATERIALS") : glTFMaterials[desc.MaterialID]));
 
                     for (int k = 0; k < faceTbl.VertCount; k += 3)
                     {
@@ -1494,31 +1486,34 @@ namespace XBC2ModelDecomp
                         VertexColor1Texture2 uv1 = new VertexColor1Texture2(ColorToVector4(vertTbl.VertexColor[faceTbl.Vertices[k + 1]]), UVs >= 1 ? vertTbl.UVPos[faceTbl.Vertices[k + 1], 0] : Vector2.Zero, UVs >= 2 ? vertTbl.UVPos[faceTbl.Vertices[k + 1], 1] : Vector2.Zero);
                         VertexColor1Texture2 uv2 = new VertexColor1Texture2(ColorToVector4(vertTbl.VertexColor[faceTbl.Vertices[k + 2]]), UVs >= 1 ? vertTbl.UVPos[faceTbl.Vertices[k + 2], 0] : Vector2.Zero, UVs >= 2 ? vertTbl.UVPos[faceTbl.Vertices[k + 2], 1] : Vector2.Zero);
 
-                        /*JointBinding jb00 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k], 0], vertTbl.WeightValues[faceTbl.Vertices[k], 0]);
-                        JointBinding jb01 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k], 0], vertTbl.WeightValues[faceTbl.Vertices[k], 0]);
-                        JointBinding jb02 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k], 0], vertTbl.WeightValues[faceTbl.Vertices[k], 0]);
-                        JointBinding jb03 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k], 0], vertTbl.WeightValues[faceTbl.Vertices[k], 0]);
-                        JointBinding jb10 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 1], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 0]);
-                        JointBinding jb11 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 1], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 0]);
-                        JointBinding jb12 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 1], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 0]);
-                        JointBinding jb13 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 1], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 0]);
-                        JointBinding jb20 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 2], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 0]);
-                        JointBinding jb21 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 2], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 0]);
-                        JointBinding jb22 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 2], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 0]);
-                        JointBinding jb23 = new JointBinding(vertTbl.WeightIds[faceTbl.Vertices[k + 2], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 0]);
-                        VertexJoints16x4 bone0 = new VertexJoints16x4(jb00, jb01, jb02, jb03);
-                        VertexJoints16x4 bone1 = new VertexJoints16x4(jb10, jb11, jb12, jb13);
-                        VertexJoints16x4 bone2 = new VertexJoints16x4(jb20, jb21, jb22, jb23);
+                        Vector4 idx0 = new Vector4(vertTbl.WeightIds[faceTbl.Vertices[k], 0], vertTbl.WeightIds[faceTbl.Vertices[k], 1], vertTbl.WeightIds[faceTbl.Vertices[k], 2], vertTbl.WeightIds[faceTbl.Vertices[k], 3]);
+                        Vector4 idx1 = new Vector4(vertTbl.WeightIds[faceTbl.Vertices[k + 1], 0], vertTbl.WeightIds[faceTbl.Vertices[k + 1], 1], vertTbl.WeightIds[faceTbl.Vertices[k + 1], 2], vertTbl.WeightIds[faceTbl.Vertices[k + 1], 3]);
+                        Vector4 idx2 = new Vector4(vertTbl.WeightIds[faceTbl.Vertices[k + 2], 0], vertTbl.WeightIds[faceTbl.Vertices[k + 2], 1], vertTbl.WeightIds[faceTbl.Vertices[k + 2], 2], vertTbl.WeightIds[faceTbl.Vertices[k + 2], 3]);
+
+                        Vector4 wgt0 = new Vector4(vertTbl.WeightValues[faceTbl.Vertices[k], 0], vertTbl.WeightValues[faceTbl.Vertices[k], 1], vertTbl.WeightValues[faceTbl.Vertices[k], 2], vertTbl.WeightValues[faceTbl.Vertices[k], 3]);
+                        Vector4 wgt1 = new Vector4(vertTbl.WeightValues[faceTbl.Vertices[k + 1], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 1], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 2], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 3]);
+                        Vector4 wgt2 = new Vector4(vertTbl.WeightValues[faceTbl.Vertices[k + 2], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 1], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 2], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 3]);
+
+                        if (wgt0 == Vector4.Zero)
+                            wgt0 = new Vector4(.25f, .25f, .25f, .25f);
+                        if (wgt1 == Vector4.Zero)
+                            wgt1 = new Vector4(.25f, .25f, .25f, .25f);
+                        if (wgt2 == Vector4.Zero)
+                            wgt2 = new Vector4(.25f, .25f, .25f, .25f);
+
+                        VertexJoints4 bone0 = new VertexJoints4(new SparseWeight8(idx0, wgt0));
+                        VertexJoints4 bone1 = new VertexJoints4(new SparseWeight8(idx1, wgt1));
+                        VertexJoints4 bone2 = new VertexJoints4(new SparseWeight8(idx2, wgt2));
 
                         if (SKEL.Unknown1 != Int32.MaxValue)
                             meshPrim.AddTriangle(new GLTFVert(tri0, uv0, bone0), new GLTFVert(tri1, uv1, bone1), new GLTFVert(tri2, uv2, bone2));
-                        else*/
-                            meshPrim.AddTriangle(new GLTFVert(tri0, uv0, new VertexJoints16x4(0)), new GLTFVert(tri1, uv1, new VertexJoints16x4(0)), new GLTFVert(tri2, uv2, new VertexJoints16x4(0)));
+                        else
+                            meshPrim.AddTriangle(new GLTFVert(tri0, uv0, new VertexJoints4((0, .25f))), new GLTFVert(tri1, uv1, new VertexJoints4((0, .25f))), new GLTFVert(tri2, uv2, new VertexJoints4((0, .25f))));
                     }
 
                     meshBuilders.Add(meshBuilder);
 
-                    if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0 && App.PropPositions)
+                    if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
                         meshBuildersMatrices.Add(MapInfo.PropPositions[MXMD.ModelStruct.Meshes[i].Unknown1].Matrix);
                     else
                         meshBuildersMatrices.Add(Matrix4x4.Identity);
@@ -1561,14 +1556,14 @@ namespace XBC2ModelDecomp
             for (int i = 0; i < MSRD.DataItemsCount; i++)
             {
                 Structs.MSRDDataItem dataItem = MSRD.DataItems[i];
-                Stream sStream = MSRD.TOC[1].Data;
-                BinaryReader brTexture = new BinaryReader(sStream);
                 int Offset = dataItem.Offset;
                 int Size = dataItem.Size;
 
                 switch (dataItem.Type)
                 {
                     case Structs.MSRDDataItemTypes.Texture:
+                        Stream sStream = MSRD.TOC[1].Data;
+                        BinaryReader brTexture = new BinaryReader(sStream);
                         Structs.LBIM TextureLBIM = ReadLBIM(sStream, brTexture, Offset, Size, dataItem);
                         LBIMs.Add(TextureLBIM);
                         break;
@@ -1576,7 +1571,7 @@ namespace XBC2ModelDecomp
                         BinaryReader meshData = new BinaryReader(MSRD.TOC[0].Data);
                         for (int j = 0; j < MSRD.TextureInfo.Length; j++)
                         {
-                            Structs.LBIM CacheLBIM = ReadLBIM(MSRD.TOC[0].Data, meshData, dataItem.Offset + MSRD.TextureInfo[j].Offset, MSRD.TextureInfo[j].Size);
+                            Structs.LBIM CacheLBIM = ReadLBIM(MSRD.TOC[0].Data, meshData, Offset + MSRD.TextureInfo[j].Offset, MSRD.TextureInfo[j].Size);
                             LBIMs.Add(CacheLBIM);
                         }
                         break;
@@ -1594,7 +1589,7 @@ namespace XBC2ModelDecomp
                 TextureData.Seek(0x0, SeekOrigin.Begin);
 
                 int TextureType = 0;
-                switch (LBIMs[i].Type)
+                switch (LBIM.Type)
                 {
                     case 37:
                         TextureType = 28;

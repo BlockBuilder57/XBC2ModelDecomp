@@ -29,7 +29,8 @@ namespace XBC2ModelDecomp
         public static bool ExportFlexes;
         public static bool ExportAnims;
         public static bool ExportOutlines;
-        public static bool PropPositions;
+        public static bool ExportMapMesh;
+        public static bool ExportMapProps;
         public static bool ShowInfo;
         public static int LOD;
         public static int PropSplitCount;
