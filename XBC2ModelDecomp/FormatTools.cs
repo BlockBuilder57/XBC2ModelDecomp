@@ -13,6 +13,7 @@ using SharpGLTF.Geometry.VertexTypes;
 using SharpGLTF.Transforms;
 using zlib;
 using SharpGLTF.Materials;
+using SharpGLTF.Scenes;
 
 namespace XBC2ModelDecomp
 {
@@ -121,7 +122,7 @@ namespace XBC2ModelDecomp
                         if (App.ExportOutlines || (!App.ExportOutlines && !MXMD.Materials[MXMD.ModelStruct.Meshes[i].Descriptors[j].MaterialID].Name.Contains("outline")))
                         {
                             ValidMeshes.Add(j);
-                            if (App.ExportFlexes && Mesh.MorphDataOffset > 0)
+                            if (App.ExportFormat == Structs.ExportFormat.XNALara && App.ExportFlexes && Mesh.MorphDataOffset > 0)
                             {
                                 List<Structs.MeshMorphDescriptor> descs = Mesh.MorphData.MorphDescriptors.Where(x => x.BufferID == MXMD.ModelStruct.Meshes[i].Descriptors[j].VertTableIndex).ToList();
                                 if (descs.Count > 0)
@@ -1415,18 +1416,49 @@ namespace XBC2ModelDecomp
 
         public void ModelToGLTF(Structs.Mesh[] Meshes, Structs.MXMD MXMD, Structs.SKEL SKEL, Structs.MapInfo MapInfo, string FilenameOverride = "")
         {
-            List<int>[] ValidMeshes = VerifyMeshes(Meshes[0], MXMD);
+            string filename = App.CurFileNameNoExt;
+            if (!string.IsNullOrWhiteSpace(FilenameOverride))
+                filename += $"_{FilenameOverride}";
+            else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
+                filename += $"_mesh{MapInfo.MeshFileLookup.Min()}-{MapInfo.MeshFileLookup.Max()}";
+            else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
+                filename += $"_props_mesh{MapInfo.PropFileLookup.Min()}-{MapInfo.PropFileLookup.Max()}";
 
-            List<MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints4>> meshBuilders = new List<MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints4>>();
+            SceneBuilder scene = new SceneBuilder(filename);
+
+            List<int>[] ValidMeshes = VerifyMeshes(Meshes[0], MXMD);
             List<MaterialBuilder> glTFMaterials = new List<MaterialBuilder>();
-            List<Matrix4x4> meshBuildersMatrices = new List<Matrix4x4>();
 
             for (int i = 0; i < MXMD.Materials.Length; i++)
             {
                 MaterialBuilder material = new MaterialBuilder(MXMD.Materials[i].Name)
                     .WithMetallicRoughnessShader()
-                    .WithChannelParam(KnownChannels.BaseColor, new Vector4(1, 1, 1, 1));
+                    .WithChannelParam(KnownChannel.BaseColor, new Vector4(1, 1, 1, 1));
                 glTFMaterials.Add(material);
+            }
+
+            NodeBuilder rootNode = new NodeBuilder("Armature");
+            List<NodeBuilder> bones = new List<NodeBuilder>();
+
+            Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
+            for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
+                NodesIdsNames.Add(r, MXMD.ModelStruct.Nodes.Nodes[r].Name);
+
+            if (SKEL.Unknown1 != Int32.MaxValue)
+            {
+                NodeBuilder node = null;
+                for (int i = 0; i < SKEL.TOCItems[2].Count; i++)
+                {
+                    Vector3 bonePos = new Vector3(SKEL.Transforms[i].Position.X, SKEL.Transforms[i].Position.Y, SKEL.Transforms[i].Position.Z);
+                    Quaternion boneRot = Quaternion.CreateFromYawPitchRoll(SKEL.Transforms[i].RealRotation.X, SKEL.Transforms[i].RealRotation.Y, SKEL.Transforms[i].RealRotation.Z);
+                    Vector3 boneScale = new Vector3(SKEL.Transforms[i].Scale.X, SKEL.Transforms[i].Scale.Y, SKEL.Transforms[i].Scale.Z);
+
+                    if (node == null)
+                        node = rootNode.CreateNode(SKEL.Nodes[i].Name).WithLocalTranslation(bonePos).WithLocalRotation(boneRot).WithLocalScale(boneScale);
+                    else
+                        node = bones[SKEL.Parents[i]].CreateNode(SKEL.Nodes[i].Name).WithLocalTranslation(bonePos).WithLocalRotation(boneRot).WithLocalScale(boneScale);
+                    bones.Add(node);
+                }
             }
 
             Structs.Mesh Mesh = Meshes[0];
@@ -1438,21 +1470,14 @@ namespace XBC2ModelDecomp
                 else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
                     Mesh = Meshes[MapInfo.PropFileLookup[MapInfo.PropPositions[MXMD.ModelStruct.Meshes[i].Unknown1].PropID]];
 
-                int lastMeshIdIdenticalCount = 0;
-                bool lastMeshIdIdentical = false;
                 for (int j = 1; j < ValidMeshes[i].Count; j++)
                 {
-                    lastMeshIdIdentical = j == 1 ? false : ValidMeshes[i][j - 1] == ValidMeshes[i][j];
-
-                    if (lastMeshIdIdentical)
-                        lastMeshIdIdenticalCount++;
-                    else
-                        lastMeshIdIdenticalCount = 0;
-
                     int descId = ValidMeshes[i][j];
                     Structs.MXMDMeshDescriptor desc = MXMD.Version == Int32.MaxValue ? default(Structs.MXMDMeshDescriptor) : MXMD.ModelStruct.Meshes[i].Descriptors[descId];
+
                     Structs.MeshVertexTable vertTbl = Mesh.VertexTables[desc.VertTableIndex];
                     Structs.MeshFaceTable faceTbl = Mesh.FaceTables[desc.FaceTableIndex];
+
                     Structs.MeshMorphDescriptor morphDesc = new Structs.MeshMorphDescriptor();
                     if (App.ExportFlexes && Mesh.MorphDataOffset > 0)
                         morphDesc = Mesh.MorphData.MorphDescriptors.Where(x => x.BufferID == desc.VertTableIndex).FirstOrDefault();
@@ -1463,17 +1488,16 @@ namespace XBC2ModelDecomp
                     else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
                         meshName = $"prop{i}mesh{MapInfo.PropFileLookup[MapInfo.PropPositions[i].PropID]}";
                     meshName += $"desc{descId}{(desc.LOD != App.LOD ? $"_LOD{desc.LOD}" : "")}";
-                    if (lastMeshIdIdentical)
-                        meshName += $"_flex_{MXMD.ModelStruct.MorphControls.Controls[lastMeshIdIdenticalCount - 1].Name}";
+
                     MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints4> meshBuilder = new MeshBuilder<VertexPositionNormal, VertexColor1Texture2, VertexJoints4>(meshName);
                     PrimitiveBuilder<MaterialBuilder, VertexPositionNormal, VertexColor1Texture2, VertexJoints4> meshPrim = meshBuilder.UsePrimitive((MXMD.Version == Int32.MaxValue ? new MaterialBuilder("NO_MATERIALS") : glTFMaterials[desc.MaterialID]));
 
                     for (int k = 0; k < faceTbl.VertCount; k += 3)
                     {
-                        Vector3 vert0 = vertTbl.Vertices[faceTbl.Vertices[k]];
+                        Vector3 vert0 = vertTbl.Vertices[faceTbl.Vertices[k    ]];
                         Vector3 vert1 = vertTbl.Vertices[faceTbl.Vertices[k + 1]];
                         Vector3 vert2 = vertTbl.Vertices[faceTbl.Vertices[k + 2]];
-                        Vector3 norm0 = new Vector3(vertTbl.Normals[faceTbl.Vertices[k]].X, vertTbl.Normals[faceTbl.Vertices[k]].Y, vertTbl.Normals[faceTbl.Vertices[k]].Z);
+                        Vector3 norm0 = new Vector3(vertTbl.Normals[faceTbl.Vertices[k    ]].X, vertTbl.Normals[faceTbl.Vertices[k    ]].Y, vertTbl.Normals[faceTbl.Vertices[k    ]].Z);
                         Vector3 norm1 = new Vector3(vertTbl.Normals[faceTbl.Vertices[k + 1]].X, vertTbl.Normals[faceTbl.Vertices[k + 1]].Y, vertTbl.Normals[faceTbl.Vertices[k + 1]].Z);
                         Vector3 norm2 = new Vector3(vertTbl.Normals[faceTbl.Vertices[k + 2]].X, vertTbl.Normals[faceTbl.Vertices[k + 2]].Y, vertTbl.Normals[faceTbl.Vertices[k + 2]].Z);
 
@@ -1482,24 +1506,24 @@ namespace XBC2ModelDecomp
                         VertexPositionNormal tri2 = new VertexPositionNormal(vert2, norm2);
 
                         int UVs = vertTbl.UVLayerCount;
-                        VertexColor1Texture2 uv0 = new VertexColor1Texture2(ColorToVector4(vertTbl.VertexColor[faceTbl.Vertices[k]]), UVs >= 1 ? vertTbl.UVPos[faceTbl.Vertices[k], 0] : Vector2.Zero, UVs >= 2 ? vertTbl.UVPos[faceTbl.Vertices[k], 1] : Vector2.Zero);
+                        VertexColor1Texture2 uv0 = new VertexColor1Texture2(ColorToVector4(vertTbl.VertexColor[faceTbl.Vertices[k    ]]), UVs >= 1 ? vertTbl.UVPos[faceTbl.Vertices[k    ], 0] : Vector2.Zero, UVs >= 2 ? vertTbl.UVPos[faceTbl.Vertices[k    ], 1] : Vector2.Zero);
                         VertexColor1Texture2 uv1 = new VertexColor1Texture2(ColorToVector4(vertTbl.VertexColor[faceTbl.Vertices[k + 1]]), UVs >= 1 ? vertTbl.UVPos[faceTbl.Vertices[k + 1], 0] : Vector2.Zero, UVs >= 2 ? vertTbl.UVPos[faceTbl.Vertices[k + 1], 1] : Vector2.Zero);
                         VertexColor1Texture2 uv2 = new VertexColor1Texture2(ColorToVector4(vertTbl.VertexColor[faceTbl.Vertices[k + 2]]), UVs >= 1 ? vertTbl.UVPos[faceTbl.Vertices[k + 2], 0] : Vector2.Zero, UVs >= 2 ? vertTbl.UVPos[faceTbl.Vertices[k + 2], 1] : Vector2.Zero);
 
-                        Vector4 idx0 = new Vector4(vertTbl.WeightIds[faceTbl.Vertices[k], 0], vertTbl.WeightIds[faceTbl.Vertices[k], 1], vertTbl.WeightIds[faceTbl.Vertices[k], 2], vertTbl.WeightIds[faceTbl.Vertices[k], 3]);
-                        Vector4 idx1 = new Vector4(vertTbl.WeightIds[faceTbl.Vertices[k + 1], 0], vertTbl.WeightIds[faceTbl.Vertices[k + 1], 1], vertTbl.WeightIds[faceTbl.Vertices[k + 1], 2], vertTbl.WeightIds[faceTbl.Vertices[k + 1], 3]);
-                        Vector4 idx2 = new Vector4(vertTbl.WeightIds[faceTbl.Vertices[k + 2], 0], vertTbl.WeightIds[faceTbl.Vertices[k + 2], 1], vertTbl.WeightIds[faceTbl.Vertices[k + 2], 2], vertTbl.WeightIds[faceTbl.Vertices[k + 2], 3]);
+                        Vector4 idx0 = new Vector4(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[faceTbl.Vertices[k    ]], 0]]], SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[faceTbl.Vertices[k    ]], 1]]], SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[faceTbl.Vertices[k    ]], 2]]], SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[faceTbl.Vertices[k    ]], 3]]]);
+                        Vector4 idx1 = new Vector4(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[faceTbl.Vertices[k + 1]], 0]]], SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[faceTbl.Vertices[k + 1]], 1]]], SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[faceTbl.Vertices[k + 1]], 2]]], SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[faceTbl.Vertices[k + 1]], 3]]]);
+                        Vector4 idx2 = new Vector4(SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[faceTbl.Vertices[k + 2]], 0]]], SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[faceTbl.Vertices[k + 2]], 1]]], SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[faceTbl.Vertices[k + 2]], 2]]], SKEL.NodeNames[NodesIdsNames[weightTbl.WeightIds[vertTbl.Weights[faceTbl.Vertices[k + 2]], 3]]]);
 
-                        Vector4 wgt0 = new Vector4(vertTbl.WeightValues[faceTbl.Vertices[k], 0], vertTbl.WeightValues[faceTbl.Vertices[k], 1], vertTbl.WeightValues[faceTbl.Vertices[k], 2], vertTbl.WeightValues[faceTbl.Vertices[k], 3]);
-                        Vector4 wgt1 = new Vector4(vertTbl.WeightValues[faceTbl.Vertices[k + 1], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 1], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 2], vertTbl.WeightValues[faceTbl.Vertices[k + 1], 3]);
-                        Vector4 wgt2 = new Vector4(vertTbl.WeightValues[faceTbl.Vertices[k + 2], 0], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 1], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 2], vertTbl.WeightValues[faceTbl.Vertices[k + 2], 3]);
+                        Vector4 wgt0 = new Vector4(weightTbl.WeightValues[vertTbl.Weights[faceTbl.Vertices[k    ]], 0], weightTbl.WeightValues[vertTbl.Weights[faceTbl.Vertices[k    ]], 1], weightTbl.WeightValues[vertTbl.Weights[faceTbl.Vertices[k    ]], 2], weightTbl.WeightValues[vertTbl.Weights[faceTbl.Vertices[k    ]], 3]);
+                        Vector4 wgt1 = new Vector4(weightTbl.WeightValues[vertTbl.Weights[faceTbl.Vertices[k + 1]], 0], weightTbl.WeightValues[vertTbl.Weights[faceTbl.Vertices[k + 1]], 1], weightTbl.WeightValues[vertTbl.Weights[faceTbl.Vertices[k + 1]], 2], weightTbl.WeightValues[vertTbl.Weights[faceTbl.Vertices[k + 1]], 3]);
+                        Vector4 wgt2 = new Vector4(weightTbl.WeightValues[vertTbl.Weights[faceTbl.Vertices[k + 2]], 0], weightTbl.WeightValues[vertTbl.Weights[faceTbl.Vertices[k + 2]], 1], weightTbl.WeightValues[vertTbl.Weights[faceTbl.Vertices[k + 2]], 2], weightTbl.WeightValues[vertTbl.Weights[faceTbl.Vertices[k + 2]], 3]);
 
                         if (wgt0 == Vector4.Zero)
-                            wgt0 = new Vector4(.25f, .25f, .25f, .25f);
+                            wgt0 = new Vector4(1f, 0f, 0f, 0f);
                         if (wgt1 == Vector4.Zero)
-                            wgt1 = new Vector4(.25f, .25f, .25f, .25f);
+                            wgt1 = new Vector4(1f, 0f, 0f, 0f);
                         if (wgt2 == Vector4.Zero)
-                            wgt2 = new Vector4(.25f, .25f, .25f, .25f);
+                            wgt2 = new Vector4(1f, 0f, 0f, 0f);
 
                         VertexJoints4 bone0 = new VertexJoints4(new SparseWeight8(idx0, wgt0));
                         VertexJoints4 bone1 = new VertexJoints4(new SparseWeight8(idx1, wgt1));
@@ -1509,38 +1533,49 @@ namespace XBC2ModelDecomp
                             meshPrim.AddTriangle(new GLTFVert(tri0, uv0, bone0), new GLTFVert(tri1, uv1, bone1), new GLTFVert(tri2, uv2, bone2));
                         else
                             meshPrim.AddTriangle(new GLTFVert(tri0, uv0, new VertexJoints4((0, .25f))), new GLTFVert(tri1, uv1, new VertexJoints4((0, .25f))), new GLTFVert(tri2, uv2, new VertexJoints4((0, .25f))));
+
+                        if (App.ExportFlexes && morphDesc.TargetCounts > 0)
+                        {
+                            for (int l = 0; l < morphDesc.TargetCounts; l++)
+                            {
+                                int morphId = morphDesc.TargetIDs[l];
+
+                                var morphBuilder = meshBuilder.UseMorphTarget(morphId);
+
+                                Vector3 vertMorph0 = Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + morphId].Vertices[faceTbl.Vertices[k]];
+                                Vector3 vertMorph1 = Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + morphId].Vertices[faceTbl.Vertices[k + 1]];
+                                Vector3 vertMorph2 = Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + morphId].Vertices[faceTbl.Vertices[k + 2]];
+
+                                Vector3 normMorph0 = new Vector3(Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + morphId].Normals[faceTbl.Vertices[k]].X, Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + morphId].Normals[faceTbl.Vertices[k]].Y, Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + morphId].Normals[faceTbl.Vertices[k]].Z);
+                                Vector3 normMorph1 = new Vector3(Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + morphId].Normals[faceTbl.Vertices[k + 1]].X, Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + morphId].Normals[faceTbl.Vertices[k + 1]].Y, Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + morphId].Normals[faceTbl.Vertices[k + 1]].Z);
+                                Vector3 normMorph2 = new Vector3(Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + morphId].Normals[faceTbl.Vertices[k + 2]].X, Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + morphId].Normals[faceTbl.Vertices[k + 2]].Y, Mesh.MorphData.MorphTargets[morphDesc.TargetIndex + morphId].Normals[faceTbl.Vertices[k + 2]].Z);
+
+                                morphBuilder.SetVertexDelta(vert0, new VertexGeometryDelta(vertMorph0, normMorph0, Vector3.Zero));
+                                morphBuilder.SetVertexDelta(vert1, new VertexGeometryDelta(vertMorph1, normMorph1, Vector3.Zero));
+                                morphBuilder.SetVertexDelta(vert2, new VertexGeometryDelta(vertMorph2, normMorph2, Vector3.Zero));
+                            }
+                        }
                     }
 
-                    meshBuilders.Add(meshBuilder);
-
-                    if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
-                        meshBuildersMatrices.Add(MapInfo.PropPositions[MXMD.ModelStruct.Meshes[i].Unknown1].Matrix);
+                    if (SKEL.Unknown1 != Int32.MaxValue)
+                    {
+                        if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
+                            scene.AddSkinnedMesh(meshBuilder, MapInfo.PropPositions[MXMD.ModelStruct.Meshes[i].Unknown1].Matrix, bones.ToArray());
+                        else
+                            scene.AddSkinnedMesh(meshBuilder, rootNode.WorldMatrix, bones.ToArray());
+                    }
                     else
-                        meshBuildersMatrices.Add(Matrix4x4.Identity);
+                    {
+                        if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
+                            scene.AddMesh(meshBuilder, MapInfo.PropPositions[MXMD.ModelStruct.Meshes[i].Unknown1].Matrix);
+                        else
+                            scene.AddMesh(meshBuilder, Matrix4x4.Identity);
+                    }
                 }
             }
 
-            string filename = App.CurFileNameNoExt;
-            if (!string.IsNullOrWhiteSpace(FilenameOverride))
-                filename += $"_{FilenameOverride}";
-            else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.MeshFileLookupOffset != 0)
-                filename += $"_mesh{MapInfo.MeshFileLookup.Min()}-{MapInfo.MeshFileLookup.Max()}";
-            else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
-                filename += $"_props_mesh{MapInfo.PropFileLookup.Min()}-{MapInfo.PropFileLookup.Max()}";
-
-            ModelRoot model = ModelRoot.CreateModel();
-            IReadOnlyList<Mesh> meshes = model.CreateMeshes(meshBuilders.ToArray());
-            Scene scene = model.UseScene("default");
-            Node node = scene.CreateNode(filename);
-
-            for (int i = 0; i < meshes.Count; i++)
-            {
-                Node newMesh = node.CreateNode().WithMesh(meshes[i]);
-                newMesh.LocalMatrix = meshBuildersMatrices[i];
-            }
-
-            App.PushLog("Writing .glb file...");
-            model.SaveGLB($@"{App.CurOutputPath}\{filename}.glb");
+            App.PushLog($"Writing {filename}.glb...");
+            scene.ToSchema2().SaveGLB($@"{App.CurOutputPath}\{filename}.glb");
         }
 
         public void ReadTextures(Structs.MSRD MSRD, string texturesFolderPath, List<Structs.LBIM> LBIMs = null)
