@@ -1244,12 +1244,6 @@ namespace XBC2ModelDecomp
 
         public void ModelToASCII(Structs.Mesh[] Meshes, Structs.MXMD MXMD, Structs.SKEL SKEL, Structs.MapInfo MapInfo, string FilenameOverride = "")
         {
-            Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
-            for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
-                NodesIdsNames.Add(r, MXMD.ModelStruct.Nodes.Nodes[r].Name);
-
-            //begin ascii
-            //bone time
             string filename = App.CurFileNameNoExt;
             if (!string.IsNullOrWhiteSpace(FilenameOverride))
                 filename += FilenameOverride;
@@ -1258,7 +1252,19 @@ namespace XBC2ModelDecomp
             else if (MapInfo.Unknown1 != Int32.MaxValue && MapInfo.PropFileIndexOffset != 0)
                 filename += $"_props_mesh{MapInfo.PropFileLookup.Min()}-{MapInfo.PropFileLookup.Max()}";
 
+            //begin ascii
             StreamWriter asciiWriter = new StreamWriter($@"{App.CurOutputPath}\{filename}.ascii");
+
+            //bone time
+            Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
+            for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
+            {
+                if (!MXMD.ModelStruct.Nodes.Nodes[r].Name.StartsWith("eff"))
+                    NodesIdsNames.Add(r, MXMD.ModelStruct.Nodes.Nodes[r].Name);
+                else
+                    NodesIdsNames.Add(r, SKEL.Nodes[r].Name); //stupidest hack in the world but it WORKS
+            }
+
             if (SKEL.Unknown1 != Int32.MaxValue)
             {
                 asciiWriter.WriteLine(SKEL.TOCItems[2].Count);
@@ -1437,26 +1443,38 @@ namespace XBC2ModelDecomp
                 glTFMaterials.Add(material);
             }
 
-            NodeBuilder rootNode = new NodeBuilder("Armature");
+            NodeBuilder rootNode = new NodeBuilder("PissIdiot");
             List<NodeBuilder> bones = new List<NodeBuilder>();
 
             Dictionary<int, string> NodesIdsNames = new Dictionary<int, string>();
             for (int r = 0; r < MXMD.ModelStruct.Nodes.BoneCount; r++)
-                NodesIdsNames.Add(r, MXMD.ModelStruct.Nodes.Nodes[r].Name);
+            {
+                if (!MXMD.ModelStruct.Nodes.Nodes[r].Name.StartsWith("eff"))
+                    NodesIdsNames.Add(r, MXMD.ModelStruct.Nodes.Nodes[r].Name);
+                else
+                    NodesIdsNames.Add(r, SKEL.Nodes[r].Name); //stupidest hack in the world but it WORKS
+            }
 
             if (SKEL.Unknown1 != Int32.MaxValue)
             {
                 NodeBuilder node = null;
                 for (int i = 0; i < SKEL.TOCItems[2].Count; i++)
                 {
-                    Vector3 bonePos = new Vector3(SKEL.Transforms[i].Position.X, SKEL.Transforms[i].Position.Y, SKEL.Transforms[i].Position.Z);
-                    Quaternion boneRot = Quaternion.CreateFromYawPitchRoll(SKEL.Transforms[i].RealRotation.X, SKEL.Transforms[i].RealRotation.Y, SKEL.Transforms[i].RealRotation.Z);
+                    Vector3 bonePos = new Vector3(SKEL.Transforms[i].RealPosition.X, SKEL.Transforms[i].RealPosition.Y, SKEL.Transforms[i].RealPosition.Z);
+                    
+                    //these are actually quaternions not eulers
+                    //Quaternion boneRot = SKEL.Transforms[i].RealRotation;
+                    Quaternion boneRot = SKEL.Transforms[i].Rotation;
+
                     Vector3 boneScale = new Vector3(SKEL.Transforms[i].Scale.X, SKEL.Transforms[i].Scale.Y, SKEL.Transforms[i].Scale.Z);
 
+                    if (node != null)
+                        bonePos -= SKEL.Transforms[SKEL.Parents[i]].RealPosition;
+
                     if (node == null)
-                        node = rootNode.CreateNode(SKEL.Nodes[i].Name).WithLocalTranslation(bonePos).WithLocalRotation(boneRot).WithLocalScale(boneScale);
+                        node = rootNode.CreateNode(SKEL.Nodes[i].Name).WithLocalTranslation(bonePos).WithLocalScale(boneScale);
                     else
-                        node = bones[SKEL.Parents[i]].CreateNode(SKEL.Nodes[i].Name).WithLocalTranslation(bonePos).WithLocalRotation(boneRot).WithLocalScale(boneScale);
+                        node = bones[SKEL.Parents[i]].CreateNode(SKEL.Nodes[i].Name).WithLocalTranslation(bonePos).WithLocalScale(boneScale);
                     bones.Add(node);
                 }
             }
